@@ -280,6 +280,7 @@ tbody tr.er td{padding:0;background:var(--cr2);border-bottom:1px solid var(--bdr
     <!-- ALL ORDERS -->
     <div class="page" id="page-orders">
       <div class="ph"><div class="pt">ALL ORDERS</div><div class="ps">Click any row to expand cost &amp; revenue · Changes sync to Google Sheets automatically</div></div>
+      <div class="mb" id="mBar" style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px;"></div>
       <div class="tb">
         <div class="sb">
           <span style="color:var(--mut);font-size:13px;">🔍</span>
@@ -389,8 +390,7 @@ let syncStatus='disconnected'; // disconnected | connected | syncing | error
 function save(){try{localStorage.setItem(SK,JSON.stringify(orders));}catch(e){}}
 function load(){try{const d=localStorage.getItem(SK);if(d)orders=JSON.parse(d);}catch(e){orders=[];}}
 function loadUrl(){
-  const saved=localStorage.getItem('pm_script_url');
-  if(saved&&saved.trim()) scriptURL=saved.trim();
+  scriptURL=localStorage.getItem('pm_script_url')||'';
   if(scriptURL){document.getElementById('scriptUrl').value=scriptURL;setSyncStatus('connected');}
 }
 
@@ -634,14 +634,13 @@ function sPill(s){
   return`<span class="pill ${s}"><span class="pd"></span>${lbl[s]||s}</span>`;
 }
 function deriveStatus(o){
-  // Complete = col N shipped ("Approved") — that's the only trigger
-  if(isSh(o)) return 'complete';
-  // On hold
   const k=(o.status||'').toLowerCase().trim();
+  // Complete: col K says complete OR col N is shipped — either triggers complete
+  if(k==='complete') return 'complete';
+  if(isSh(o))        return 'complete';
   if(k==='on_hold'||k==='on hold') return 'on_hold';
-  // Ordered
-  if(k==='ordered') return 'ordered';
-  // Working = proof approved AND col K empty or "working"
+  if(k==='ordered')  return 'ordered';
+  // Working = proof approved AND col K is empty or "working"
   const appr=(o.approved||'').toLowerCase().trim();
   const proofApproved=appr==='approved'||appr==='n/a'||appr.startsWith('approved');
   const kEmptyOrWorking=k===''||k==='working'||k==='pending';
@@ -785,6 +784,19 @@ function setFilter(f,btn){curFilter=f;curPage=1;document.querySelectorAll('.fb')
 
 function renderTable(){
   const q=(document.getElementById('srch')?.value||'').toLowerCase();
+  // Build month filter bar
+  const allMonths=[...new Set(orders.map(o=>(o.orderDate||o.date2||'').slice(0,7)).filter(Boolean))].sort().reverse();
+  const mBarEl=document.getElementById('mBar');
+  if(mBarEl){
+    mBarEl.innerHTML=
+      `<div class="mc ${curMonth==='all'?'active':''}" onclick="setMon('all',this)">All</div>`+
+      allMonths.map(m=>{
+        const [y,mo]=m.split('-');
+        const lbl=new Date(y,mo-1,1).toLocaleString('en-US',{month:'long',year:'numeric'});
+        return `<div class="mc ${curMonth===m?'active':''}" onclick="setMon('${m}',this)">${lbl}</div>`;
+      }).join('');
+  }
+
   let fil=orders.filter(o=>{
     if(curFilter!=='all'&&o.status!==curFilter)return false;
     if(q&&!`${o.client} ${o.product} ${o.orderNum} ${o.supplier} ${o.decorator}`.toLowerCase().includes(q))return false;
@@ -987,6 +999,12 @@ async function testWrite(){
   }
 }
 
+function setMon(m,el){
+  curMonth=m;curPage=1;
+  document.querySelectorAll('.mc').forEach(c=>c.classList.remove('active'));
+  if(el)el.classList.add('active');
+  renderTable();
+}
 // ── EXPORT ───────────────────────────────────────────────
 function exportCSV(){
   const H=['Client','Product','Order #','Source','Date','Status','Paid','Approved','Shipped','Invoiced','Supplier','Decorator','Our Cost','Our Setup','Decoration','Our Ship','Our Total','Cust Price','Cust Setup','Cust Ship','Cust Total','Profit','Tracking','Notes'];
