@@ -652,20 +652,11 @@ function sPill(s){
   return`<span class="pill ${s}"><span class="pd"></span>${lbl[s]||s}</span>`;
 }
 function deriveStatus(o){
-  // Complete is always final — nothing overrides it
-  if(o.status==='complete') return 'complete';
-  if(o.status==='on_hold')  return 'on_hold';
-  // Shipped (col N = "Approved") also means complete
-  if(isSh(o)) return 'complete';
-  // Col K explicitly "Ordered"
-  if(o.status==='ordered') return 'ordered';
-  // Working = proof approved AND (col K is empty or says "working")
-  const colK=(o.status||'').toLowerCase().trim();
-  const appr=(o.approved||'').toLowerCase().trim();
-  const proofApproved=appr==='approved'||appr==='n/a'||appr.startsWith('approved');
-  const kEmptyOrWorking=colK===''||colK==='working'||colK==='pending';
-  if(proofApproved&&kEmptyOrWorking) return 'working';
-  // Everything else = pending
+  const k=(o.status||'').toLowerCase().trim();
+  if(k==='complete') return 'complete';
+  if(k==='on_hold'||k==='on hold') return 'on_hold';
+  if(k==='ordered')  return 'ordered';
+  if(k==='working')  return 'working';
   return 'pending';
 }
 function ck(y){return y?'<span class="ck y">✓</span>':'<span class="ck n">–</span>';}
@@ -708,8 +699,11 @@ function appPill(v){
 
 // ── DASHBOARD ─────────────────────────────────────────────
 function renderDash(){
-  const tot=orders.length,ord=orders.filter(o=>o.status==='ordered'||o.status==='sent_po').length;
-  const com=orders.filter(o=>o.status==='complete').length;
+  const tot=orders.length;
+  const pending=orders.filter(o=>deriveStatus(o)==='pending').length;
+  const working=orders.filter(o=>deriveStatus(o)==='working').length;
+  const ord=orders.filter(o=>deriveStatus(o)!=='complete').length;
+  const com=orders.filter(o=>deriveStatus(o)==='complete').length;
   // Only count revenue & cost for approved orders
   const approvedOrders=orders.filter(o=>isApp(o));
   const rev=approvedOrders.reduce((s,o)=>s+custT(o),0);
@@ -751,11 +745,14 @@ function renderDash(){
         <div class="fm">${f.label} · ${f.o.product}</div></div>
       </div>`).join('')
     :'<div style="color:var(--cmp);font-size:12.5px;">✅ All clear!</div>';
-  document.getElementById('sSplit').innerHTML=`
-    <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span style="color:var(--ord);">Ordered</span><span>${ord} (${pO}%)</span></div>
-    <div style="background:var(--cr2);border-radius:4px;height:7px;"><div style="background:var(--ord);height:100%;width:${pO}%;border-radius:4px;"></div></div></div>
-    <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span style="color:var(--cmp);">Complete</span><span>${com} (${pC}%)</span></div>
-    <div style="background:var(--cr2);border-radius:4px;height:7px;"><div style="background:var(--cmp);height:100%;width:${pC}%;border-radius:4px;"></div></div></div>`;
+  document.getElementById('sSplit').innerHTML=(()=>{
+    const pP=tot?Math.round(pending/tot*100):0;
+    const pW=tot?Math.round(working/tot*100):0;
+    const pC=tot?Math.round(com/tot*100):0;
+    return `<div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span style="color:var(--hld);">Pending</span><span>${pending} (${pP}%)</span></div><div style="background:var(--cr2);border-radius:4px;height:7px;"><div style="background:var(--hld);height:100%;width:${pP}%;border-radius:4px;"></div></div></div>
+    <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span style="color:var(--ord);">Working</span><span>${working} (${pW}%)</span></div><div style="background:var(--cr2);border-radius:4px;height:7px;"><div style="background:var(--ord);height:100%;width:${pW}%;border-radius:4px;"></div></div></div>
+    <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span style="color:var(--cmp);">Complete</span><span>${com} (${pC}%)</span></div><div style="background:var(--cr2);border-radius:4px;height:7px;"><div style="background:var(--cmp);height:100%;width:${pC}%;border-radius:4px;"></div></div></div>`;
+  })();
 }
 
 // ── FLAGS ─────────────────────────────────────────────────
@@ -1026,28 +1023,36 @@ document.addEventListener('click',function(e){
   if(panel.classList.contains('open')&&!panel.contains(e.target)&&!badge.contains(e.target))panel.classList.remove('open');
 });
 document.getElementById('hDate').textContent=new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
-loadUrl();
+// ── INIT ──────────────────────────────────────────────
+// Load seed data instantly, then sync from Supabase
+orders = SEED_ORDERS.map((o,i)=>({...o, id: o.id||(i+100)}));
+setSyncStatus('syncing');
 renderDash();
 
-// ── AUTO-SYNC ON LOAD ─────────────────────────────────────
-// If a script URL is saved, automatically pull fresh data from
-// the sheet every time the dashboard is opened, and then every
-// 5 minutes while it's open so the team always sees live data.
-async function autoSync(){
-  if(!scriptURL) return; // no URL configured yet — skip
-  logSync('Auto-syncing on load...','info');
-  await pullFromSheet();
-}
+// Connect to Supabase and load live data
+setTimeout(async()=>{
+  try{
+    const data = await fetchOrders();
+    if(data && data.length > 0){
+      orders = data;
+      renderTable();
+      renderDash();
+    } else {
+      // First time — seed the database
+      await seedDatabase();
+      renderTable();
+      renderDash();
+    }
+    setSyncStatus('connected');
+    // Subscribe to realtime changes so all computers stay in sync
+    subscribeRealtime();
+  }catch(e){
+    console.error('Supabase init error:', e);
+    setSyncStatus('error');
+    toast('Database connection failed: '+e.message,'err');
+  }
+}, 300);
 
-// Pull immediately on load (small delay so UI renders first)
-setTimeout(autoSync, 800);
-
-// Then re-pull every 5 minutes while dashboard is open
-setInterval(async()=>{
-  if(!scriptURL) return;
-  logSync('Auto-refresh (5 min interval)...','info');
-  await pullFromSheet();
-}, 5 * 60 * 1000);
 </script>
 </body>
 </html>
