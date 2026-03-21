@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Planet Media — Order Dashboard</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{--red:#C0202A;--red-d:#8f151d;--red-g:rgba(192,32,42,0.12);--blk:#0c0c0c;--drk:#141414;--crd:#1a1a1a;--cr2:#202020;--cr3:#272727;--bdr:#272727;--bd2:#333;--txt:#efefef;--mut:#6a6a6a;--mu2:#444;--wht:#fff;--ord:#e8a020;--cmp:#27ae60;--hld:#e74c3c;--blu:#4e8ef5;--pur:#9b59b6;--syn:#00c9a7;}
@@ -208,7 +208,7 @@ tbody tr.er td{padding:0;background:var(--cr2);border-bottom:1px solid var(--bdr
   </div>
   <div class="hdr-mid">
     <div class="hdr-title">ORDER MANAGEMENT</div>
-    <div class="sync-badge connected" id="syncBadge" title="Supabase Live Sync">
+    <div class="sync-badge connected" id="syncBadge" onclick="toggleSyncPanel()" title="Settings" style="cursor:pointer;">
       <span class="sync-dot"></span>
       <span id="syncLabel">Live</span>
     </div>
@@ -216,19 +216,17 @@ tbody tr.er td{padding:0;background:var(--cr2);border-bottom:1px solid var(--bdr
   <div class="hdr-date" id="hDate"></div>
 </header>
 
+<div class="sync-panel" id="syncPanel">
+  <div class="sp-title">⚙ SETTINGS</div>
   <div class="sp-row">
-    <label>Apps Script Web App URL</label>
-    <input type="text" id="scriptUrl" placeholder="https://script.google.com/macros/s/.../exec">
-  </div>
-  <div class="sp-row">
-    <label>Google Sheet Script URL (for write-back)</label>
+    <label>Google Sheet Apps Script URL</label>
     <input type="text" id="sheetUrl" placeholder="https://script.google.com/macros/s/.../exec">
   </div>
   <div class="sp-btns">
-    <button class="btn" onclick="saveSheetUrl()">Save Sheet URL</button>
-    <button class="btn sec" onclick="syncFromSupabase()">↓ Sync Now</button>
+    <button class="btn" onclick="saveSheetUrl()">Save & Connect Sheet</button>
+    <button class="btn sec" onclick="syncFromSupabase()">↓ Refresh Data</button>
   </div>
-  <div class="sp-log" id="syncLog"><span class="info">Paste your Apps Script Web App URL to connect. Once connected, the dashboard auto-syncs on every load and every 5 minutes.</span></div>
+  <div class="sp-log" id="syncLog"></div>
 </div>
 
 <div class="app">
@@ -449,7 +447,7 @@ function mapToDB(o){
 
 // ── SHEET WRITE-BACK ─────────────────────────────────────────
 // When dashboard makes changes, also push to Google Sheet
-let SHEET_SCRIPT_URL = localStorage.getItem('pm_sheet_url') || '';
+let SHEET_SCRIPT_URL = localStorage.getItem('pm_sheet_url') || 'PASTE_YOUR_APPS_SCRIPT_URL_HERE';
 
 async function pushToSheet(action, payload) {
   if (!SHEET_SCRIPT_URL) return; // no sheet URL configured — skip
@@ -465,14 +463,10 @@ async function pushToSheet(action, payload) {
   }
 }
 
-// ── REALTIME SUBSCRIPTION ────────────────────────────────────
+// ── REALTIME POLLING (every 30 seconds) ─────────────────────
+// Using polling instead of websocket to avoid browser compatibility issues
 function subscribeRealtime(){
-  supa.channel('orders-changes')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, payload => {
-      // Reload orders when any change happens from any computer
-      syncFromSupabase(true);
-    })
-    .subscribe();
+  setInterval(()=>{ syncFromSupabase(true); }, 30000);
 }
 let orders=[];
 let editId=null,curFilter='all',sortC='status',sortD=1,curPage=1,expId=null;
@@ -603,7 +597,10 @@ function setSyncStatus(s){
   l.textContent=labels[s]||s;
 }
 
-function toggleSyncPanel(){ /* no-op — Supabase is always connected */ }
+function toggleSyncPanel(){
+  const p=document.getElementById('syncPanel');
+  if(p) p.classList.toggle('open');
+}
 function saveScriptUrl(){ /* no-op */ }
 function logSync(msg,cls){ console.log('[Sync]', msg); }
 function saveSheetUrl(){
@@ -1062,15 +1059,12 @@ document.addEventListener('click',function(e){
 document.getElementById('hDate').textContent=new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
 // ── INIT ──────────────────────────────────────────────
 // Load seed data instantly, then sync from Supabase
-// Load saved sheet URL — hide panel if already configured
+// Load saved sheet URL
 const savedSheetUrl = localStorage.getItem('pm_sheet_url');
 if(savedSheetUrl) {
   SHEET_SCRIPT_URL = savedSheetUrl;
   const el = document.getElementById('sheetUrl');
   if(el) el.value = savedSheetUrl;
-  // Already configured — don't show the panel on load
-  const panel = document.getElementById('syncPanel');
-  if(panel) panel.style.display = 'none';
 }
 orders = SEED_ORDERS.map((o,i)=>({...o, id: o.id||(i+100)}));
 setSyncStatus('syncing');
@@ -1082,6 +1076,10 @@ setTimeout(async()=>{
     const data = await fetchOrders();
     if(data && data.length > 0){
       orders = data;
+      // Debug: log unique status values from DB
+      const statuses = [...new Set(data.map(o=>o.status))];
+      console.log('Status values from DB:', statuses);
+      console.log('Sample order:', data[0]);
       renderTable();
       renderDash();
     } else {
