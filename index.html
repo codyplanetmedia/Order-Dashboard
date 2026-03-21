@@ -382,7 +382,7 @@ const SEED_ORDERS = [{"id":100,"rowIndex":100,"flag":false,"client":"MCMC","prod
 // ── STATE ──────────────────────────────────────────────────
 const SK='pm_v5';
 let orders=[];
-let editId=null,curFilter='all',sortC='status',sortD=1,curPage=1,expId=null;
+let editId=null,curFilter='all',sortC='status',sortD=1,curPage=1,expId=null,curMonth='all';
 const PG=25;
 let scriptURL='https://script.google.com/macros/s/AKfycbx_RQnGucw-wzkRCyz4RB2jjxYDZ1fLjctrS_ZRp12oM_Vn5FxI0Fj1-oFjJhQw1psU/exec';
 let syncStatus='disconnected'; // disconnected | connected | syncing | error
@@ -785,7 +785,7 @@ function setFilter(f,btn){curFilter=f;curPage=1;document.querySelectorAll('.fb')
 function renderTable(){
   const q=(document.getElementById('srch')?.value||'').toLowerCase();
   // Build month filter bar
-  const allMonths=[...new Set(orders.map(o=>(o.orderDate||o.date2||'').slice(0,7)).filter(Boolean))].sort().reverse();
+  const allMonths=[...new Set(orders.map(o=>(o.orderDate||o.date2||o.orderDate||'').slice(0,7)).filter(Boolean))].sort().reverse();
   const mBarEl=document.getElementById('mBar');
   if(mBarEl){
     mBarEl.innerHTML=
@@ -798,7 +798,9 @@ function renderTable(){
   }
 
   let fil=orders.filter(o=>{
-    if(curFilter!=='all'&&o.status!==curFilter)return false;
+    const ds=deriveStatus(o);
+    if(curFilter!=='all'&&ds!==curFilter)return false;
+    if(curMonth!=='all'){const d=(o.orderDate||'').slice(0,7);if(!d||d!==curMonth)return false;}
     if(q&&!`${o.client} ${o.product} ${o.orderNum} ${o.supplier} ${o.decorator}`.toLowerCase().includes(q))return false;
     return true;
   });
