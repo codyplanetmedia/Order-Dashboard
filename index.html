@@ -280,7 +280,6 @@ tbody tr.er td{padding:0;background:var(--cr2);border-bottom:1px solid var(--bdr
     <!-- ALL ORDERS -->
     <div class="page" id="page-orders">
       <div class="ph"><div class="pt">ALL ORDERS</div><div class="ps">Click any row to expand cost &amp; revenue · Changes sync to Google Sheets automatically</div></div>
-      <div class="mb" id="mBar" style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px;"></div>
       <div class="tb">
         <div class="sb">
           <span style="color:var(--mut);font-size:13px;">🔍</span>
@@ -382,7 +381,7 @@ const SEED_ORDERS = [{"id":100,"rowIndex":100,"flag":false,"client":"MCMC","prod
 // ── STATE ──────────────────────────────────────────────────
 const SK='pm_v5';
 let orders=[];
-let editId=null,curFilter='all',sortC='status',sortD=1,curPage=1,expId=null,curMonth='all';
+let editId=null,curFilter='all',sortC='status',sortD=1,curPage=1,expId=null;
 const PG=25;
 let scriptURL='https://script.google.com/macros/s/AKfycbx_RQnGucw-wzkRCyz4RB2jjxYDZ1fLjctrS_ZRp12oM_Vn5FxI0Fj1-oFjJhQw1psU/exec';
 let syncStatus='disconnected'; // disconnected | connected | syncing | error
@@ -635,10 +634,10 @@ function sPill(s){
 }
 function deriveStatus(o){
   const k=(o.status||'').toLowerCase().trim();
-  if(k==='complete')             return 'complete';
+  if(k==='complete') return 'complete';
   if(k==='on_hold'||k==='on hold') return 'on_hold';
-  if(k==='ordered')              return 'ordered';
-  if(k==='working')              return 'working';
+  if(k==='ordered')  return 'ordered';
+  if(k==='working')  return 'working';
   return 'pending';
 }
 function ck(y){return y?'<span class="ck y">✓</span>':'<span class="ck n">–</span>';}
@@ -684,7 +683,7 @@ function renderDash(){
   const tot=orders.length;
   const pending=orders.filter(o=>deriveStatus(o)==='pending').length;
   const working=orders.filter(o=>deriveStatus(o)==='working').length;
-  const ord=orders.filter(o=>{ const d=deriveStatus(o); return d==='ordered'||d==='working'||d==='pending'; }).length;
+  const ord=orders.filter(o=>{ const d=deriveStatus(o); return d!=='complete'; }).length;
   const com=orders.filter(o=>deriveStatus(o)==='complete').length;
   // Only count revenue & cost for approved orders
   const approvedOrders=orders.filter(o=>isApp(o));
@@ -731,13 +730,9 @@ function renderDash(){
     const pP=tot?Math.round(pending/tot*100):0;
     const pW=tot?Math.round(working/tot*100):0;
     const pC=tot?Math.round(com/tot*100):0;
-    return `
-    <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span style="color:var(--hld);">Pending</span><span>${pending} (${pP}%)</span></div>
-    <div style="background:var(--cr2);border-radius:4px;height:7px;"><div style="background:var(--hld);height:100%;width:${pP}%;border-radius:4px;"></div></div></div>
-    <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span style="color:var(--ord);">Working</span><span>${working} (${pW}%)</span></div>
-    <div style="background:var(--cr2);border-radius:4px;height:7px;"><div style="background:var(--ord);height:100%;width:${pW}%;border-radius:4px;"></div></div></div>
-    <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span style="color:var(--cmp);">Complete</span><span>${com} (${pC}%)</span></div>
-    <div style="background:var(--cr2);border-radius:4px;height:7px;"><div style="background:var(--cmp);height:100%;width:${pC}%;border-radius:4px;"></div></div></div>`;
+    return `<div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span style="color:var(--hld);">Pending</span><span>${pending} (${pP}%)</span></div><div style="background:var(--cr2);border-radius:4px;height:7px;"><div style="background:var(--hld);height:100%;width:${pP}%;border-radius:4px;"></div></div></div>
+    <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span style="color:var(--ord);">Working</span><span>${working} (${pW}%)</span></div><div style="background:var(--cr2);border-radius:4px;height:7px;"><div style="background:var(--ord);height:100%;width:${pW}%;border-radius:4px;"></div></div></div>
+    <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span style="color:var(--cmp);">Complete</span><span>${com} (${pC}%)</span></div><div style="background:var(--cr2);border-radius:4px;height:7px;"><div style="background:var(--cmp);height:100%;width:${pC}%;border-radius:4px;"></div></div></div>`;
   })();
 }
 
@@ -788,23 +783,8 @@ function setFilter(f,btn){curFilter=f;curPage=1;document.querySelectorAll('.fb')
 
 function renderTable(){
   const q=(document.getElementById('srch')?.value||'').toLowerCase();
-  // Build month filter bar
-  const allMonths=[...new Set(orders.map(o=>(o.orderDate||o.date2||o.orderDate||'').slice(0,7)).filter(Boolean))].sort().reverse();
-  const mBarEl=document.getElementById('mBar');
-  if(mBarEl){
-    mBarEl.innerHTML=
-      `<div class="mc ${curMonth==='all'?'active':''}" onclick="setMon('all',this)">All</div>`+
-      allMonths.map(m=>{
-        const [y,mo]=m.split('-');
-        const lbl=new Date(y,mo-1,1).toLocaleString('en-US',{month:'long',year:'numeric'});
-        return `<div class="mc ${curMonth===m?'active':''}" onclick="setMon('${m}',this)">${lbl}</div>`;
-      }).join('');
-  }
-
   let fil=orders.filter(o=>{
-    const ds=deriveStatus(o);
-    if(curFilter!=='all'&&ds!==curFilter)return false;
-    if(curMonth!=='all'){const d=(o.orderDate||'').slice(0,7);if(!d||d!==curMonth)return false;}
+    if(curFilter!=='all'&&o.status!==curFilter)return false;
     if(q&&!`${o.client} ${o.product} ${o.orderNum} ${o.supplier} ${o.decorator}`.toLowerCase().includes(q))return false;
     return true;
   });
@@ -1005,12 +985,6 @@ async function testWrite(){
   }
 }
 
-function setMon(m,el){
-  curMonth=m;curPage=1;
-  document.querySelectorAll('.mc').forEach(c=>c.classList.remove('active'));
-  if(el)el.classList.add('active');
-  renderTable();
-}
 // ── EXPORT ───────────────────────────────────────────────
 function exportCSV(){
   const H=['Client','Product','Order #','Source','Date','Status','Paid','Approved','Shipped','Invoiced','Supplier','Decorator','Our Cost','Our Setup','Decoration','Our Ship','Our Total','Cust Price','Cust Setup','Cust Ship','Cust Total','Profit','Tracking','Notes'];
