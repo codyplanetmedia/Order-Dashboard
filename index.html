@@ -635,16 +635,10 @@ function sPill(s){
 }
 function deriveStatus(o){
   const k=(o.status||'').toLowerCase().trim();
-  // Complete: col K says complete OR col N is shipped — either triggers complete
-  if(k==='complete') return 'complete';
-  if(isSh(o))        return 'complete';
+  if(k==='complete')             return 'complete';
   if(k==='on_hold'||k==='on hold') return 'on_hold';
-  if(k==='ordered')  return 'ordered';
-  // Working = proof approved AND col K is empty or "working"
-  const appr=(o.approved||'').toLowerCase().trim();
-  const proofApproved=appr==='approved'||appr==='n/a'||appr.startsWith('approved');
-  const kEmptyOrWorking=k===''||k==='working'||k==='pending';
-  if(proofApproved&&kEmptyOrWorking) return 'working';
+  if(k==='ordered')              return 'ordered';
+  if(k==='working')              return 'working';
   return 'pending';
 }
 function ck(y){return y?'<span class="ck y">✓</span>':'<span class="ck n">–</span>';}
@@ -687,8 +681,11 @@ function appPill(v){
 
 // ── DASHBOARD ─────────────────────────────────────────────
 function renderDash(){
-  const tot=orders.length,ord=orders.filter(o=>o.status==='ordered'||o.status==='sent_po').length;
-  const com=orders.filter(o=>o.status==='complete').length;
+  const tot=orders.length;
+  const pending=orders.filter(o=>deriveStatus(o)==='pending').length;
+  const working=orders.filter(o=>deriveStatus(o)==='working').length;
+  const ord=orders.filter(o=>{ const d=deriveStatus(o); return d==='ordered'||d==='working'||d==='pending'; }).length;
+  const com=orders.filter(o=>deriveStatus(o)==='complete').length;
   // Only count revenue & cost for approved orders
   const approvedOrders=orders.filter(o=>isApp(o));
   const rev=approvedOrders.reduce((s,o)=>s+custT(o),0);
@@ -730,11 +727,18 @@ function renderDash(){
         <div class="fm">${f.label} · ${f.o.product}</div></div>
       </div>`).join('')
     :'<div style="color:var(--cmp);font-size:12.5px;">✅ All clear!</div>';
-  document.getElementById('sSplit').innerHTML=`
-    <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span style="color:var(--ord);">Ordered</span><span>${ord} (${pO}%)</span></div>
-    <div style="background:var(--cr2);border-radius:4px;height:7px;"><div style="background:var(--ord);height:100%;width:${pO}%;border-radius:4px;"></div></div></div>
+  document.getElementById('sSplit').innerHTML=(()=>{
+    const pP=tot?Math.round(pending/tot*100):0;
+    const pW=tot?Math.round(working/tot*100):0;
+    const pC=tot?Math.round(com/tot*100):0;
+    return `
+    <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span style="color:var(--hld);">Pending</span><span>${pending} (${pP}%)</span></div>
+    <div style="background:var(--cr2);border-radius:4px;height:7px;"><div style="background:var(--hld);height:100%;width:${pP}%;border-radius:4px;"></div></div></div>
+    <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span style="color:var(--ord);">Working</span><span>${working} (${pW}%)</span></div>
+    <div style="background:var(--cr2);border-radius:4px;height:7px;"><div style="background:var(--ord);height:100%;width:${pW}%;border-radius:4px;"></div></div></div>
     <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span style="color:var(--cmp);">Complete</span><span>${com} (${pC}%)</span></div>
     <div style="background:var(--cr2);border-radius:4px;height:7px;"><div style="background:var(--cmp);height:100%;width:${pC}%;border-radius:4px;"></div></div></div>`;
+  })();
 }
 
 // ── FLAGS ─────────────────────────────────────────────────
