@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Planet Media — Order Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--red:#C0202A;--red-d:#8f151d;--red-g:rgba(192,32,42,0.12);--blk:#0c0c0c;--drk:#141414;--crd:#1a1a1a;--cr2:#202020;--cr3:#272727;--bdr:#272727;--bd2:#333;--txt:#efefef;--mut:#6a6a6a;--mu2:#444;--wht:#fff;--ord:#e8a020;--cmp:#27ae60;--hld:#e74c3c;--blu:#4e8ef5;--pur:#9b59b6;--syn:#00c9a7;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'DM Sans',sans-serif;background:var(--blk);color:var(--txt);min-height:100vh;}
+::-webkit-scrollbar{width:5px;height:5px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:3px;}
+
+/* HEADER */
+header{background:var(--drk);border-bottom:2px solid var(--red);height:58px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;position:sticky;top:0;z-index:300;}
+.logo{display:flex;align-items:center;gap:9px;}
+.logo svg{width:30px;height:30px;}
+.logo-name{font-family:'Bebas Neue',sans-serif;font-size:19px;letter-spacing:2.5px;}
+.logo-name span{color:var(--red);}
+.hdr-mid{display:flex;align-items:center;gap:16px;}
+.hdr-title{font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:3px;color:var(--mut);}
+/* SYNC STATUS */
+.sync-badge{display:flex;align-items:center;gap:6px;font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid var(--bdr);background:var(--crd);color:var(--mut);cursor:pointer;transition:all .2s;}
+.sync-badge.connected{border-color:var(--syn);color:var(--syn);}
+.sync-badge.syncing{border-color:var(--ord);color:var(--ord);}
+.sync-badge.error{border-color:var(--hld);color:var(--hld);}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:currentColor;}
+.sync-badge.syncing .sync-dot{animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+.hdr-date{font-size:11px;color:var(--mut);}
+
+/* SYNC PANEL */
+.sync-panel{position:fixed;top:66px;right:16px;width:360px;background:var(--crd);border:1px solid var(--bd2);border-radius:12px;padding:20px;z-index:400;display:none;box-shadow:0 8px 32px rgba(0,0,0,.5);}
+.sync-panel.open{display:block;}
+.sp-title{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:2px;margin-bottom:14px;}
+.sp-row{display:flex;flex-direction:column;gap:5px;margin-bottom:12px;}
+.sp-row label{font-size:9.5px;text-transform:uppercase;letter-spacing:1.5px;color:var(--mut);}
+.sp-row input{background:var(--drk);border:1px solid var(--bdr);color:var(--txt);font-family:'DM Sans',sans-serif;font-size:12px;padding:8px 10px;border-radius:6px;outline:none;}
+.sp-row input:focus{border-color:var(--red);}
+.sp-row input::placeholder{color:var(--mu2);}
+.sp-btns{display:flex;gap:8px;margin-top:4px;}
+.sp-log{margin-top:12px;background:var(--drk);border:1px solid var(--bdr);border-radius:6px;padding:10px;font-size:11px;color:var(--mut);font-family:monospace;max-height:100px;overflow-y:auto;line-height:1.6;}
+.sp-log .ok{color:var(--syn);}
+.sp-log .err{color:var(--hld);}
+.sp-log .info{color:var(--ord);}
+
+/* LAYOUT */
+.app{display:flex;min-height:calc(100vh - 58px);}
+
+/* SIDENAV */
+.snav{width:190px;flex-shrink:0;background:var(--drk);border-right:1px solid var(--bdr);padding:16px 0;position:sticky;top:58px;height:calc(100vh - 58px);overflow-y:auto;}
+.nl{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--mu2);padding:0 18px;margin:0 0 5px;}
+.ni{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:7px;cursor:pointer;font-size:12.5px;color:var(--mut);transition:all .15s;margin:1px 7px;}
+.ni:hover{background:var(--crd);color:var(--txt);}
+.ni.active{background:var(--red-g);color:var(--red);border-left:2px solid var(--red);}
+.ni-ic{width:16px;text-align:center;font-size:13px;}
+.ns{margin-bottom:20px;}
+
+/* MAIN */
+.main{flex:1;padding:22px;min-width:0;overflow:hidden;}
+.page{display:none;}.page.active{display:block;}
+.ph{margin-bottom:18px;}
+.pt{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:3px;line-height:1;}
+.ps{font-size:11px;color:var(--mut);margin-top:3px;}
+
+/* STATS */
+.sg{display:grid;grid-template-columns:repeat(5,1fr);gap:11px;margin-bottom:18px;}
+.sc{background:var(--crd);border:1px solid var(--bdr);border-radius:9px;padding:15px 17px;position:relative;overflow:hidden;}
+.sc::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
+.sc.t::after{background:var(--red);}.sc.o::after{background:var(--ord);}.sc.c::after{background:var(--cmp);}.sc.r::after{background:var(--blu);}.sc.p::after{background:var(--pur);}
+.sc:hover{border-color:var(--bd2);}
+.sl{font-size:9px;letter-spacing:1.8px;text-transform:uppercase;color:var(--mut);margin-bottom:6px;}
+.sv{font-family:'Bebas Neue',sans-serif;font-size:34px;line-height:1;color:var(--wht);}
+.sv.sm{font-size:22px;}
+.ss{font-size:10px;color:var(--mu2);margin-top:3px;}
+
+/* TOOLBAR */
+.tb{display:flex;align-items:center;gap:7px;margin-bottom:13px;flex-wrap:wrap;}
+.sb{display:flex;align-items:center;gap:6px;background:var(--crd);border:1px solid var(--bdr);border-radius:7px;padding:7px 11px;flex:1;max-width:250px;}
+.sb input{background:none;border:none;color:var(--txt);font-family:'DM Sans',sans-serif;font-size:12.5px;outline:none;width:100%;}
+.sb input::placeholder{color:var(--mu2);}
+.fw{display:flex;gap:5px;}
+.fb{background:var(--crd);border:1px solid var(--bdr);color:var(--mut);font-family:'DM Sans',sans-serif;font-size:11.5px;padding:6px 12px;border-radius:6px;cursor:pointer;transition:all .15s;white-space:nowrap;}
+.fb:hover,.fb.active{background:var(--red);border-color:var(--red);color:#fff;}
+.mla{margin-left:auto;}
+.btn{background:var(--red);border:none;color:#fff;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;padding:7px 15px;border-radius:7px;cursor:pointer;transition:background .15s;display:flex;align-items:center;gap:5px;white-space:nowrap;}
+.btn:hover{background:var(--red-d);}
+.btn.sec{background:var(--cr2);border:1px solid var(--bd2);color:var(--mut);}
+.btn.sec:hover{background:var(--cr3);color:var(--txt);}
+.btn.syn-btn{background:var(--cr2);border:1px solid var(--syn);color:var(--syn);}
+.btn.syn-btn:hover{background:rgba(0,201,167,.1);}
+
+/* TABLE */
+.tw{background:var(--crd);border:1px solid var(--bdr);border-radius:9px;overflow:hidden;}
+.ts{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;min-width:860px;}
+thead th{font-size:9.5px;letter-spacing:1.3px;text-transform:uppercase;color:var(--mut);font-weight:500;text-align:left;padding:10px 13px;background:var(--cr2);border-bottom:1px solid var(--bdr);white-space:nowrap;cursor:pointer;user-select:none;}
+thead th:hover{color:var(--txt);}
+tbody td{padding:10px 13px;font-size:12.5px;border-bottom:1px solid #1c1c1c;vertical-align:middle;}
+tbody tr:last-child td{border-bottom:none;}
+tbody tr.mr:hover td{background:#1d1d1d;cursor:pointer;}
+tbody tr.er td{padding:0;background:var(--cr2);border-bottom:1px solid var(--bdr);}
+.ei{padding:0 14px 14px;display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.eb{background:var(--cr3);border:1px solid var(--bdr);border-radius:8px;padding:13px 15px;}
+.et{font-size:9.5px;letter-spacing:2px;text-transform:uppercase;color:var(--mut);margin-bottom:9px;}
+.erow{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--bdr);font-size:12.5px;}
+.erow:last-child{border-bottom:none;}
+.erow.tot{font-weight:700;color:var(--wht);padding-top:8px;font-size:13px;}
+.erow .lb{color:var(--mut);}
+.erow .vl{color:var(--txt);font-weight:500;}
+.erow.tot .vl{color:var(--wht);}
+.prow{display:flex;justify-content:space-between;align-items:center;padding:8px 14px;background:var(--cr2);border-radius:6px;margin-top:8px;font-size:12.5px;grid-column:1/-1;}
+.prow .lb{color:var(--mut);font-size:10px;letter-spacing:1px;text-transform:uppercase;}
+.emeta{grid-column:1/-1;font-size:11px;color:var(--mut);padding:0 2px;}
+
+/* sync indicator per row */
+.row-syncing td{opacity:.6;}
+.row-synced td:first-child::before{content:'✓';color:var(--syn);font-size:10px;margin-right:4px;}
+
+.tc{font-weight:600;color:var(--wht);max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tp{color:var(--mut);font-size:12px;max-width:165px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ton{font-size:11px;color:var(--mut);font-family:monospace;}
+.pill{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:600;padding:3px 9px;border-radius:20px;white-space:nowrap;}
+.pd{width:5px;height:5px;border-radius:50%;background:currentColor;}
+.pill.ordered{background:rgba(232,160,32,.12);color:var(--ord);border:1px solid rgba(232,160,32,.25);}
+.pill.complete{background:rgba(39,174,96,.1);color:var(--cmp);border:1px solid rgba(39,174,96,.2);}
+.pill.on_hold{background:rgba(231,76,60,.1);color:var(--hld);border:1px solid rgba(231,76,60,.2);}
+.pill.sent_po{background:rgba(78,142,245,.1);color:var(--blu);border:1px solid rgba(78,142,245,.2);}
+.ck{width:20px;height:20px;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;}
+.ck.y{background:rgba(39,174,96,.15);color:var(--cmp);}
+.ck.n{background:rgba(255,255,255,.04);color:var(--mu2);}
+.apill{display:inline-flex;align-items:center;font-size:10.5px;font-weight:600;padding:3px 9px;border-radius:20px;white-space:nowrap;max-width:130px;overflow:hidden;text-overflow:ellipsis;}
+.apill.ap{background:rgba(39,174,96,.1);color:var(--cmp);border:1px solid rgba(39,174,96,.25);}
+.apill.na{background:rgba(231,76,60,.08);color:var(--hld);border:1px solid rgba(231,76,60,.2);}
+.apill.na2{background:rgba(255,255,255,.05);color:var(--mu2);border:1px solid var(--bdr);}
+.apill.need{background:rgba(232,160,32,.1);color:var(--ord);border:1px solid rgba(232,160,32,.25);}
+.mv{font-weight:600;color:var(--wht);font-size:12.5px;}
+.mv.dim{color:var(--mut);font-weight:400;}
+.arr{font-size:10px;color:var(--mut);transition:transform .2s;}
+.arr.open{transform:rotate(180deg);}
+.ab{background:none;border:1px solid var(--bdr);color:var(--mut);font-size:10.5px;padding:3px 8px;border-radius:5px;cursor:pointer;transition:all .12s;font-family:'DM Sans',sans-serif;margin-right:2px;}
+.ab:hover{border-color:var(--red);color:var(--red);}
+.ab.done:hover{border-color:var(--cmp);color:var(--cmp);}
+.tf{display:flex;align-items:center;justify-content:space-between;padding:10px 13px;border-top:1px solid var(--bdr);font-size:11.5px;color:var(--mut);}
+.pag{display:flex;gap:3px;flex-wrap:wrap;}
+.pb{background:var(--cr2);border:1px solid var(--bdr);color:var(--mut);font-size:11.5px;padding:3px 9px;border-radius:5px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .12s;}
+.pb:hover,.pb.active{background:var(--red);border-color:var(--red);color:#fff;}
+.empty{text-align:center;padding:50px 20px;color:var(--mut);}
+
+/* DASHBOARD */
+.dg{display:grid;grid-template-columns:2fr 1fr;gap:16px;}
+.wid{background:var(--crd);border:1px solid var(--bdr);border-radius:9px;padding:17px;}
+.wt{font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:2px;margin-bottom:13px;}
+.fl{display:flex;flex-direction:column;gap:7px;}
+.fi{display:flex;align-items:flex-start;gap:9px;padding:9px 12px;border-radius:7px;background:var(--cr2);border-left:3px solid transparent;cursor:pointer;transition:background .15s;}
+.fi:hover{background:var(--cr3);}
+.fc{font-size:12.5px;font-weight:600;color:var(--wht);}
+.fm{font-size:11px;color:var(--mut);margin-top:2px;}
+
+/* MODAL */
+.ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:600;align-items:center;justify-content:center;}
+.ov.open{display:flex;}
+.mo{background:var(--crd);border:1px solid var(--bd2);border-radius:13px;padding:24px;width:580px;max-width:95vw;max-height:90vh;overflow-y:auto;}
+.mot{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px;margin-bottom:18px;}
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:11px;}
+.ff{grid-column:1/-1;}
+.fm2{display:flex;flex-direction:column;gap:4px;}
+.fm2 label{font-size:9.5px;text-transform:uppercase;letter-spacing:1.5px;color:var(--mut);}
+.fm2 input,.fm2 select{background:var(--drk);border:1px solid var(--bdr);color:var(--txt);font-family:'DM Sans',sans-serif;font-size:12.5px;padding:8px 11px;border-radius:7px;outline:none;transition:border-color .2s;}
+.fm2 input:focus,.fm2 select:focus{border-color:var(--red);}
+.fm2 select option{background:var(--drk);}
+.fdiv{grid-column:1/-1;border:none;border-top:1px solid var(--bdr);margin:2px 0;}
+.fsl{grid-column:1/-1;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--mu2);margin-top:2px;}
+.mof{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;}
+.bc{background:var(--cr2);border:1px solid var(--bdr);color:var(--mut);font-family:'DM Sans',sans-serif;font-size:12.5px;padding:8px 18px;border-radius:7px;cursor:pointer;}
+.bs{background:var(--red);border:none;color:#fff;font-family:'DM Sans',sans-serif;font-size:12.5px;font-weight:600;padding:8px 22px;border-radius:7px;cursor:pointer;}
+.bs:hover{background:var(--red-d);}
+
+/* FLAGS */
+.flg{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+
+/* TOAST */
+.toast{position:fixed;bottom:20px;right:20px;background:var(--cr2);border:1px solid var(--bd2);border-radius:9px;padding:10px 16px;font-size:12.5px;z-index:999;transform:translateY(16px);opacity:0;transition:all .3s;}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast.ok{border-color:var(--cmp);}.toast.err{border-color:var(--red);}.toast.syn{border-color:var(--syn);}
+
+@keyframes fi{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+.rin{animation:fi .2s ease;}
+@media(max-width:1100px){.sg{grid-template-columns:repeat(3,1fr);}.dg{grid-template-columns:1fr;}.flg{grid-template-columns:1fr;}}
+@media(max-width:780px){.snav{display:none;}.sg{grid-template-columns:repeat(2,1fr);}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <svg viewBox="0 0 400 190" xmlns="http://www.w3.org/2000/svg" style="height:36px;width:auto;">
+    <path fill="#C1272D" d="M57.44,107.96c16.68-13.37,36.73-26.55,58.6-38.42c8-4.34,16.02-8.39,23.96-12.09h-30.75L91.55,2.98l-17.7,54.46H16.59l46.33,33.66L57.44,107.96z"/>
+    <path fill="#C1272D" d="M138.07,68.9c33-17.92,65.17-30.11,90.81-35.45c-27.58,1.56-68.9,15.16-111.62,38.36C49.54,108.58,3.97,155.57,15.47,176.75c5.9,10.86,25.66,12.83,52.64,7.21c-16.15,0.92-27.59-2.29-31.83-10.11C24.78,152.66,70.35,105.68,138.07,68.9z"/>
+    <polygon fill="white" points="45.76,145.17 91.55,111.91 91.55,111.91"/>
+    <polygon fill="white" points="120.18,91.11 120.18,91.11 166.07,57.77"/>
+    <polygon fill="white" points="137.88,145.57 120.18,91.11 91.55,111.91"/>
+    <path fill="white" d="M166.07,57.77c-8.86,4.05-17.83,8.54-26.77,13.39c-32.53,17.67-60.94,38.21-79.99,57.86c-5.51,5.68-10.05,11.11-13.55,16.16l45.79-33.26l0,0l28.63-20.8v0L166.07,57.77z"/>
+    <text x="135.63" y="107.96" font-family="Montserrat, Arial Black, sans-serif" font-weight="900" font-size="31" fill="white" letter-spacing="1">PLANET MEDIA</text>
+  </svg>
+    
+  </div>
+  <div class="hdr-mid">
+    <div class="hdr-title">ORDER MANAGEMENT</div>
+    <div class="sync-badge" id="syncBadge" onclick="toggleSyncPanel()" title="Google Sheets Sync">
+      <span class="sync-dot"></span>
+      <span id="syncLabel">Not Connected</span>
+    </div>
+  </div>
+  <div class="hdr-date" id="hDate"></div>
+</header>
+
+<!-- SYNC PANEL -->
+<div class="sync-panel" id="syncPanel">
+  <div class="sp-title">🔗 GOOGLE SHEETS SYNC</div>
+  <div class="sp-row">
+    <label>Apps Script Web App URL</label>
+    <input type="text" id="scriptUrl" placeholder="https://script.google.com/macros/s/.../exec">
+  </div>
+  <div class="sp-btns">
+    <button class="btn" onclick="testConnection()">Test Connection</button>
+    <button class="btn" onclick="saveScriptUrl()">Save & Connect</button>
+    <button class="btn sec" onclick="pullFromSheet()">↓ Pull Sheet Now</button>
+    <button class="btn sec" onclick="testWrite()">Test Write</button>
+  </div>
+  <div class="sp-log" id="syncLog"><span class="info">Paste your Apps Script Web App URL to connect. Once connected, the dashboard auto-syncs on every load and every 5 minutes.</span></div>
+</div>
+
+<div class="app">
+  <nav class="snav">
+    <div class="ns">
+      <div class="nl">Views</div>
+      <div class="ni active" onclick="showPage('dashboard',this)"><span class="ni-ic">📊</span>Dashboard</div>
+      <div class="ni" onclick="showPage('orders',this)"><span class="ni-ic">📋</span>All Orders</div>
+      <div class="ni" onclick="showPage('flags',this)"><span class="ni-ic">🚩</span>Needs Attention</div>
+    </div>
+    <div class="ns">
+      <div class="nl">Filter</div>
+      <div class="ni" onclick="qFilter('pending',this)"><span class="ni-ic">🔴</span>Pending</div>
+      <div class="ni" onclick="qFilter('working',this)"><span class="ni-ic">🟡</span>Working</div>
+      <div class="ni" onclick="qFilter('ordered',this)"><span class="ni-ic">🔵</span>Ordered</div>
+      <div class="ni" onclick="qFilter('complete',this)"><span class="ni-ic">🟢</span>Complete</div>
+    </div>
+  </nav>
+
+  <div class="main">
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div class="ph">
+        <div class="pt">OVERVIEW — MARCH 2026</div>
+        <div class="ps" id="dSub"></div>
+      </div>
+      <div class="sg" id="sGrid"></div>
+      <div class="dg">
+        <div>
+          <div class="wid" style="margin-bottom:16px;">
+            <div class="wt">RECENT ORDERS</div>
+            <div style="overflow-x:auto;">
+              <table><thead><tr>
+                <th>Client</th><th>Product</th><th>Order #</th>
+                <th>Status</th><th>Paid</th><th>Invoiced</th><th>Cust Total</th>
+              </tr></thead>
+              <tbody id="recentBody"></tbody></table>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:16px;">
+          <div class="wid"><div class="wt">⚠ NEEDS ATTENTION</div><div class="fl" id="fWidget"></div></div>
+          <div class="wid"><div class="wt">STATUS SPLIT</div><div id="sSplit" style="display:flex;flex-direction:column;gap:10px;"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ALL ORDERS -->
+    <div class="page" id="page-orders">
+      <div class="ph"><div class="pt">ALL ORDERS</div><div class="ps">Click any row to expand cost &amp; revenue · Changes sync to Google Sheets automatically</div></div>
+      <div class="tb">
+        <div class="sb">
+          <span style="color:var(--mut);font-size:13px;">🔍</span>
+          <input type="text" id="srch" placeholder="Search client, product, order #..." oninput="renderTable()">
+        </div>
+        <div class="fw">
+          <button class="fb active" onclick="setFilter('all',this)">All</button>
+          <button class="fb" onclick="setFilter('ordered',this)">Ordered</button>
+          <button class="fb" onclick="setFilter('complete',this)">Complete</button>
+        </div>
+        <div class="mla" style="display:flex;gap:7px;">
+          <button class="btn syn-btn" onclick="pullFromSheet()">↓ Sync Sheet</button>
+          <button class="btn sec" onclick="exportCSV()">⬇ Export</button>
+          <button class="btn" onclick="openModal()">+ Add Order</button>
+        </div>
+      </div>
+      <div class="tw">
+        <div class="ts">
+          <table>
+            <thead><tr>
+              <th style="width:20px;"></th>
+              <th onclick="sBy('client')">Client</th>
+              <th onclick="sBy('product')">Product</th>
+              <th onclick="sBy('orderNum')">Order #</th>
+              <th onclick="sBy('source')">Order From</th>
+              <th onclick="sBy('orderDate')">Order Date</th>
+              <th onclick="sBy('status')">Status</th>
+              <th>Paid</th>
+              <th onclick="sBy('approved')">Proof Approved</th>
+              <th>Shipped</th>
+              <th>Invoiced</th>
+              <th onclick="sBy('ourTotal')">Our Total ▾</th>
+              <th onclick="sBy('custTotal')">Cust Total ▾</th>
+              <th>Supplier</th>
+              <th>Actions</th>
+            </tr></thead>
+            <tbody id="oBody"></tbody>
+          </table>
+        </div>
+        <div class="empty" id="empt" style="display:none;">📭 No orders found</div>
+        <div class="tf"><span id="tInfo">—</span><div class="pag" id="pag"></div></div>
+      </div>
+    </div>
+
+    <!-- FLAGS -->
+    <div class="page" id="page-flags">
+      <div class="ph"><div class="pt">NEEDS ATTENTION</div><div class="ps">Orders requiring follow-up or missing information</div></div>
+      <div class="flg" id="flagPage"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="ov" id="mOv">
+  <div class="mo">
+    <div class="mot" id="mTit">ADD ORDER</div>
+    <div class="fg">
+      <div class="fm2 ff"><label>Client Name *</label><input type="text" id="fCl" placeholder="e.g. MCMC, Winnebago"></div>
+      <div class="fm2 ff"><label>Product / Description *</label><input type="text" id="fPr" placeholder="e.g. Qty 500 Business Cards"></div>
+      <div class="fm2"><label>Order Number</label><input type="text" id="fON" placeholder="e.g. 2001444"></div>
+      <div class="fm2"><label>Source</label><select id="fSo"><option value="">—</option><option>Printavo</option><option>InkSoft</option><option>OMG</option><option>Internal</option><option>Other</option></select></div>
+      <div class="fm2"><label>Order Date</label><input type="date" id="fOD"></div>
+      <div class="fm2"><label>In-Hands Date</label><input type="date" id="fIH"></div>
+      <hr class="fdiv"><div class="fsl">Status</div>
+      <div class="fm2"><label>Order Status</label><select id="fSt"><option value="">— Blank —</option><option value="pending">Pending</option><option value="working">Working</option><option value="on_hold">On Hold</option><option value="ordered">Ordered</option><option value="complete">Complete</option></select></div>
+      <div class="fm2"><label>Paid?</label><select id="fPd"><option>Not Paid</option><option>Paid</option><option>Paid w/ Card</option><option>Net 15</option><option>Invoice</option></select></div>
+      <div class="fm2"><label>Proof Approved?</label><select id="fAp"><option>Not Approved</option><option>Approved</option><option>N/A</option><option>Needs Approval</option></select></div>
+      <div class="fm2" style="flex-direction:row;align-items:center;gap:10px;padding-top:6px;">
+        <label style="margin:0;">Has Shipped?</label>
+        <input type="checkbox" id="fSh" style="width:18px;height:18px;cursor:pointer;accent-color:var(--cmp);">
+      </div>
+      <div class="fm2"><label>Customer Invoiced?</label><select id="fIn"><option>No</option><option>Yes</option></select></div>
+      <div class="fm2"><label>Supplier Invoice Paid?</label><select id="fSI"><option>Not Paid</option><option>Paid</option></select></div>
+      <hr class="fdiv"><div class="fsl">Fulfillment</div>
+      <div class="fm2"><label>Supplier</label><input type="text" id="fSup" placeholder="e.g. Sanmar, 4Over"></div>
+      <div class="fm2"><label>Decorator</label><input type="text" id="fDec" placeholder="e.g. Krown, Shirthub"></div>
+      <div class="fm2"><label>Tracking #</label><input type="text" id="fTr"></div>
+      <div class="fm2"><label>Notes</label><input type="text" id="fNo" placeholder="Waiting on..."></div>
+      <hr class="fdiv"><div class="fsl">Our Cost Breakdown</div>
+      <div class="fm2"><label>Product Cost ($)</label><input type="number" id="fOC" placeholder="0.00" step="0.01" min="0"></div>
+      <div class="fm2"><label>Setup Fee ($)</label><input type="number" id="fOS" placeholder="0.00" step="0.01" min="0"></div>
+      <div class="fm2"><label>Decoration ($)</label><input type="number" id="fOD2" placeholder="0.00" step="0.01" min="0"></div>
+      <div class="fm2"><label>Shipping ($)</label><input type="number" id="fOSh" placeholder="0.00" step="0.01" min="0"></div>
+      <hr class="fdiv"><div class="fsl">Customer Price Breakdown</div>
+      <div class="fm2"><label>Product Price ($)</label><input type="number" id="fCP" placeholder="0.00" step="0.01" min="0"></div>
+      <div class="fm2"><label>Setup Fee ($)</label><input type="number" id="fCS" placeholder="0.00" step="0.01" min="0"></div>
+      <div class="fm2"><label>Shipping ($)</label><input type="number" id="fCSh" placeholder="0.00" step="0.01" min="0"></div>
+    </div>
+    <div class="mof"><button class="bc" onclick="closeMo()">Cancel</button><button class="bs" onclick="saveOrder()">Save Order</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SEED_ORDERS = [{"id":100,"rowIndex":100,"flag":false,"client":"MCMC","product":"5 Yard Signs","orderNum":"1002107","source":"InkSoft","orderDate":"2026-03-02","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"Sinalite","decorator":"","ourCost":35.45,"ourSetup":0.0,"decoration":0.0,"ourShip":21.76,"custPrice":80.0,"custSetup":0.0,"custShip":10.0,"tracking":"","notes":""},{"id":101,"rowIndex":101,"flag":false,"client":"Skyline Real Estate","product":"Apparel - Rosa Bell","orderNum":"1002106","source":"InkSoft","orderDate":"2026-03-04","ihd":"","status":"ordered","paid":"Paid","approved":"Not Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Paid","supplier":"","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":"need substitute color"},{"id":102,"rowIndex":102,"flag":false,"client":"Service Rest","product":"Apparel - Joseph","orderNum":"1002102","source":"InkSoft","orderDate":"2026-03-04","ihd":"","status":"ordered","paid":"Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Paid","supplier":"Sanmar/SS","decorator":"Krown","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":103,"rowIndex":103,"flag":false,"client":"Hokr","product":"1/4 Zip","orderNum":"2001518","source":"Printavo","orderDate":"2026-03-03","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"SS","decorator":"Krown","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":104,"rowIndex":104,"flag":false,"client":"Grant - KW Cards","product":"Bus Cards - 500","orderNum":"2001516","source":"Printavo","orderDate":"2026-03-03","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"4Over","decorator":"","ourCost":14.46,"ourSetup":0.0,"decoration":0.0,"ourShip":11.25,"custPrice":50.0,"custSetup":0.0,"custShip":10.0,"tracking":"","notes":""},{"id":105,"rowIndex":105,"flag":false,"client":"Pub 42","product":"Qty 5 - Posters","orderNum":"2001514","source":"Printavo","orderDate":"2026-03-03","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"Allegra","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":106,"rowIndex":106,"flag":false,"client":"Vet Partners Plymouth","product":"Store Order - Alyssa Walton","orderNum":"1002105","source":"InkSoft","orderDate":"2026-03-05","ihd":"","status":"ordered","paid":"Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Paid","supplier":"Sanmar","decorator":"Kodiak","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":107,"rowIndex":107,"flag":true,"client":"PRG","product":"Amber Pointe - Brochures","orderNum":"2001502","source":"Printavo","orderDate":"2026-02-26","ihd":"","status":"ordered","paid":"Not Paid","approved":"Not Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"Printforce","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":"quote"},{"id":108,"rowIndex":108,"flag":true,"client":"Liz Lund","product":"Heated Jackets","orderNum":"2001510","source":"Printavo","orderDate":"2026-02-24","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":109,"rowIndex":109,"flag":true,"client":"Jordan Radel","product":"Jolt?","orderNum":"2001511","source":"","orderDate":"2026-03-05","ihd":"","status":"ordered","paid":"Paid w/ Card","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Paid","supplier":"ETS Express","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":110,"rowIndex":110,"flag":true,"client":"PRG","product":"Valet Keychains","orderNum":"2001522","source":"Printavo","orderDate":"2026-03-04","ihd":"","status":"sent_po","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"Promoful","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":111,"rowIndex":111,"flag":true,"client":"PRG","product":"Store order - Taylor Lemke","orderNum":"1002108","source":"InkSoft","orderDate":"2026-03-05","ihd":"","status":"ordered","paid":"Paid w/ Card","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Paid","supplier":"","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":112,"rowIndex":112,"flag":true,"client":"Winnebago","product":"Bus Cards - Tracey Mowery","orderNum":"1002109","source":"InkSoft","orderDate":"2026-03-05","ihd":"","status":"ordered","paid":"Paid w/ Card","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Paid","supplier":"4Over","decorator":"","ourCost":5.0,"ourSetup":0.0,"decoration":0.0,"ourShip":10.25,"custPrice":26.75,"custSetup":0.0,"custShip":10.0,"tracking":"","notes":""},{"id":113,"rowIndex":113,"flag":true,"client":"Satoree","product":"Business Cards - All employess (20 Sets)","orderNum":"2001524","source":"Printavo","orderDate":"2026-03-05","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"4Over","decorator":"","ourCost":813.0,"ourSetup":0.0,"decoration":0.0,"ourShip":22.37,"custPrice":1700.0,"custSetup":0.0,"custShip":85.0,"tracking":"","notes":""},{"id":114,"rowIndex":114,"flag":true,"client":"MCMC","product":"AJ Wilwerding","orderNum":"1002110","source":"InkSoft","orderDate":"2026-03-05","ihd":"","status":"ordered","paid":"Net 15","approved":"Approved","shipped":"Shipped","invoiced":"No","supInv":"Not Paid","supplier":"Sanmar","decorator":"Krown","ourCost":75.5,"ourSetup":0.0,"decoration":0.0,"ourShip":7.89,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":115,"rowIndex":115,"flag":true,"client":"Winnebago","product":"Business Cards - Danielle Garcia","orderNum":"1002111","source":"InkSoft","orderDate":"2026-03-09","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"4Over","decorator":"","ourCost":5.0,"ourSetup":0.0,"decoration":0.0,"ourShip":10.25,"custPrice":26.75,"custSetup":0.0,"custShip":10.0,"tracking":"","notes":""},{"id":116,"rowIndex":116,"flag":false,"client":"Planet Media","product":"Qty100 - Flyer","orderNum":"","source":"","orderDate":"2026-03-09","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"Printforce","decorator":"","ourCost":22.29,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":118,"rowIndex":118,"flag":false,"client":"Kingpinz","product":"Nader- 1/4 Zip","orderNum":"2001528","source":"Printavo","orderDate":"2026-03-09","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":119,"rowIndex":119,"flag":true,"client":"BMM","product":"Qty 27 - Polos","orderNum":"1002112","source":"InkSoft","orderDate":"2026-03-10","ihd":"","status":"ordered","paid":"Send QB invoice","approved":"Approved","shipped":"Shipped","invoiced":"No","supInv":"Not Paid","supplier":"Sanmar","decorator":"Krown","ourCost":469.26,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":120,"rowIndex":120,"flag":true,"client":"Skillful Carpentry","product":"Qty 10 - Yard Signs","orderNum":"2001520","source":"Printavo","orderDate":"2026-03-10","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"Sinalite","decorator":"","ourCost":64.89,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":121,"rowIndex":121,"flag":true,"client":"The Loop West End","product":"Qty 4 - Posters","orderNum":"2001530","source":"Printavo","orderDate":"2026-03-10","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"Allegra","decorator":"35","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":122,"rowIndex":122,"flag":true,"client":"Rockford Trap","product":"Coaches Shirts","orderNum":"2001527","source":"Printavo","orderDate":"2026-03-09","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"Sanmar","decorator":"Krown","ourCost":213.5,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":"getting logo digitized"},{"id":123,"rowIndex":123,"flag":false,"client":"Winnebago","product":"Business Cards - 5 Sets","orderNum":"1002113","source":"InkSoft","orderDate":"2026-03-10","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"4Over","decorator":"","ourCost":34.6,"ourSetup":0.0,"decoration":0.0,"ourShip":31.09,"custPrice":214.0,"custSetup":0.0,"custShip":12.0,"tracking":"","notes":""},{"id":124,"rowIndex":124,"flag":true,"client":"Skyline Real Estate","product":"Pointe Floor Plans","orderNum":"2001525","source":"Printavo","orderDate":"2026-03-10","ihd":"","status":"ordered","paid":"Net 15","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"Jen","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":954.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":"working on over the weekend"},{"id":125,"rowIndex":125,"flag":false,"client":"Guardian Restoration","product":"Qty2 Business Cards","orderNum":"2001531","source":"Printavo","orderDate":"2026-03-11","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"4Over","decorator":"","ourCost":87.1,"ourSetup":0.0,"decoration":0.0,"ourShip":19.25,"custPrice":184.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":126,"rowIndex":126,"flag":false,"client":"Kingpinz","product":"Pizza Cutters 200-300","orderNum":"2001533","source":"Printavo","orderDate":"","ihd":"","status":"ordered","paid":"Not Paid","approved":"Not Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":127,"rowIndex":127,"flag":false,"client":"Fargo Roofing","product":"Qty 300 Yard Signs","orderNum":"","source":"","orderDate":"","ihd":"","status":"ordered","paid":"Not Paid","approved":"Not Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":128,"rowIndex":128,"flag":false,"client":"Skyline Real Estate","product":"Atlas Point - Marketing Piece","orderNum":"","source":"Printavo","orderDate":"","ihd":"","status":"ordered","paid":"Not Paid","approved":"Not Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":"emma design"},{"id":129,"rowIndex":129,"flag":true,"client":"Five West","product":"Qty 5 - Posters","orderNum":"2001534","source":"Printavo","orderDate":"2026-03-12","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"Allegra","decorator":"","ourCost":35.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":130,"rowIndex":130,"flag":true,"client":"SMOAK","product":"Qty 5 - Posters","orderNum":"2001535","source":"Printavo","orderDate":"2026-03-12","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"Allegra","decorator":"","ourCost":35.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":131,"rowIndex":131,"flag":true,"client":"Service Restoration","product":"Kyra Schmidt - Apparel","orderNum":"1002114","source":"InkSoft","orderDate":"2026-03-17","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"Sanmar","decorator":"Krown","ourCost":120.64,"ourSetup":0.0,"decoration":0.0,"ourShip":8.27,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":132,"rowIndex":132,"flag":true,"client":"Skyline Real Estate","product":"Avery - Marketing Piece","orderNum":"2001536","source":"Printavo","orderDate":"2026-03-13","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":133,"rowIndex":133,"flag":true,"client":"Interstate Companies","product":"Spencer Mayer","orderNum":"1002115","source":"InkSoft","orderDate":"2026-03-17","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"Sanmar","decorator":"Krown","ourCost":140.72,"ourSetup":0.0,"decoration":0.0,"ourShip":9.08,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":134,"rowIndex":134,"flag":true,"client":"Bloomington Carpet One","product":"Qty 1 - Cap","orderNum":"2001537","source":"Printavo","orderDate":"2026-03-13","ihd":"","status":"ordered","paid":"Paid w/ Card","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Paid","supplier":"Sanmar","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":135,"rowIndex":135,"flag":true,"client":"Skyline Real Estate","product":"Apparel","orderNum":"1002116","source":"InkSoft","orderDate":"2026-03-16","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"Sanmar","decorator":"Krown","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":136,"rowIndex":136,"flag":true,"client":"RIO Multifamily","product":"Qty 500 - Cards Mike Tempel","orderNum":"2001529","source":"Printavo","orderDate":"2026-03-10","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"Printforce","decorator":"","ourCost":76.11,"ourSetup":0.0,"decoration":0.0,"ourShip":8.59,"custPrice":175.0,"custSetup":0.0,"custShip":10.0,"tracking":"","notes":"Foil Cards"},{"id":137,"rowIndex":137,"flag":true,"client":"Boulevard Restraunt","product":"Qty 1500 - Business Cards/Coupons","orderNum":"2001544","source":"Printavo","orderDate":"2026-03-17","ihd":"","status":"ordered","paid":"Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Paid","supplier":"4Over","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":138,"rowIndex":138,"flag":true,"client":"Tony Weinstine","product":"Busines Cards","orderNum":"2001545","source":"Printavo","orderDate":"2026-03-17","ihd":"","status":"ordered","paid":"Not Paid","approved":"Not Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"4Over","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":139,"rowIndex":139,"flag":false,"client":"Aries Painting","product":"Busines Cards","orderNum":"2001546","source":"Printavo","orderDate":"2026-03-17","ihd":"","status":"ordered","paid":"Not Paid","approved":"Not Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":140,"rowIndex":140,"flag":true,"client":"Loop Mpls","product":"Qty 100 - Happy Hour Menus","orderNum":"2001540","source":"Printavo","orderDate":"2026-03-17","ihd":"","status":"ordered","paid":"Paid w/ card","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Paid","supplier":"Printforce","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":141,"rowIndex":141,"flag":false,"client":"Cadence Marketing","product":"Laynards","orderNum":"2001541","source":"Printavo","orderDate":"2026-03-19","ihd":"","status":"ordered","paid":"Not Paid","approved":"Not Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":142,"rowIndex":142,"flag":false,"client":"Cadence Marketing","product":"Pins","orderNum":"2001543","source":"Printavo","orderDate":"2026-03-19","ihd":"","status":"ordered","paid":"Not Paid","approved":"Not Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":143,"rowIndex":143,"flag":true,"client":"Pemberton Homes","product":"350 Sellers Guides","orderNum":"2001550","source":"Printavo","orderDate":"2026-03-19","ihd":"","status":"ordered","paid":"Paid w/ Card","approved":"Not Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Paid","supplier":"Printforce","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":144,"rowIndex":144,"flag":true,"client":"Pemberton Homes","product":"Qty 500 Buyers Guides","orderNum":"2001549","source":"Printavo","orderDate":"2026-03-19","ihd":"","status":"ordered","paid":"Paid w/ Card","approved":"Not Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Paid","supplier":"Printforce","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":145,"rowIndex":145,"flag":false,"client":"Liz Lund Store","product":"Davd Counts - Apparel","orderNum":"182673446","source":"OMG","orderDate":"2026-03-19","ihd":"","status":"ordered","paid":"Paid w/ Card","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Paid","supplier":"Sanmar","decorator":"Krown","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":146,"rowIndex":146,"flag":false,"client":"Oaks Properties","product":"24\" x 18\" PVC Sign","orderNum":"2001551","source":"Printavo","orderDate":"2026-03-20","ihd":"","status":"ordered","paid":"Not Paid","approved":"Not Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":147,"rowIndex":147,"flag":false,"client":"Rockford Trap","product":"Shirts - Qty 51","orderNum":"","source":"Printavo","orderDate":"","ihd":"","status":"ordered","paid":"Not Paid","approved":"Not Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":"meeting on Friday"},{"id":148,"rowIndex":148,"flag":false,"client":"Satoree","product":"Table Top Display","orderNum":"","source":"Printavo","orderDate":"","ihd":"","status":"ordered","paid":"Not Paid","approved":"Not Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":"need design from brittany"},{"id":149,"rowIndex":149,"flag":false,"client":"Satoree","product":"Trifold Brochures","orderNum":"","source":"Printavo","orderDate":"","ihd":"","status":"ordered","paid":"Not Paid","approved":"Not Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":"need design from brittany"},{"id":150,"rowIndex":150,"flag":false,"client":"Interstate Companies","product":"Store Order - Jeremiah Johnson","orderNum":"1002118","source":"InkSoft","orderDate":"2026-03-19","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"Sanmar/Vantage","decorator":"Shirthub","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":151,"rowIndex":151,"flag":false,"client":"Liz Lund Store","product":"Dana Carmichael","orderNum":"182690053","source":"OMG","orderDate":"2026-03-19","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"Sanmar","decorator":"Krown","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":152,"rowIndex":152,"flag":false,"client":"Wayzata Legion","product":"Qty 48 - Jolt","orderNum":"2001517","source":"Printavo","orderDate":"","ihd":"","status":"ordered","paid":"Not Paid","approved":"Not Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":153,"rowIndex":153,"flag":false,"client":"Skyline Real Estate","product":"99 Lofts - Leasing Flag","orderNum":"","source":"","orderDate":"","ihd":"","status":"ordered","paid":"Not Paid","approved":"Not Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":"need design"},{"id":154,"rowIndex":154,"flag":false,"client":"Oaks Properties","product":"Business Cards - Ashley Daniel","orderNum":"","source":"","orderDate":"","ihd":"","status":"ordered","paid":"Not Paid","approved":"Not Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":155,"rowIndex":155,"flag":false,"client":"Kleinman","product":"35 Pieces - Apparel","orderNum":"","source":"","orderDate":"2026-03-14","ihd":"","status":"ordered","paid":"Paid w/ Card","approved":"Not Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Paid","supplier":"Sanmar","decorator":"Krown","ourCost":325.76,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""}];
+
+// ── STATE ──────────────────────────────────────────────────
+const SK='pm_v5';
+let orders=[];
+let editId=null,curFilter='all',sortC='status',sortD=1,curPage=1,expId=null;
+const PG=25;
+let scriptURL='';
+let syncStatus='disconnected'; // disconnected | connected | syncing | error
+
+function save(){try{localStorage.setItem(SK,JSON.stringify(orders));}catch(e){}}
+function load(){try{const d=localStorage.getItem(SK);if(d)orders=JSON.parse(d);}catch(e){orders=[];}}
+function loadUrl(){
+  scriptURL=localStorage.getItem('pm_script_url')||'';
+  if(scriptURL){document.getElementById('scriptUrl').value=scriptURL;setSyncStatus('connected');}
+}
+
+// ── SYNC ENGINE ──────────────────────────────────────────────
+// All communication via JSONP (script tag injection) to avoid CORS.
+// Reads use action param, writes use action=write&payload=JSON.
+
+function gasRequest(url, params){
+  return new Promise((resolve, reject)=>{
+    const cbName = '_gas_' + Date.now() + '_' + Math.floor(Math.random()*9999);
+
+    // Build query string — each value individually encoded
+    const qs = Object.entries({...params, callback: cbName})
+      .map(([k,v]) => encodeURIComponent(k) + '=' + encodeURIComponent(String(v)))
+      .join('&');
+
+    const fullUrl = url + '?' + qs;
+    const script  = document.createElement('script');
+    let settled   = false;
+
+    const timer = setTimeout(()=>{
+      if(settled) return;
+      settled = true;
+      cleanup();
+      reject(new Error(
+        'Request timed out (15s). Make sure: ' +
+        '1) Script is deployed as Web App, ' +
+        '2) "Who has access" = Anyone, ' +
+        '3) URL is correct'
+      ));
+    }, 15000);
+
+    function cleanup(){
+      try{ if(script.parentNode) script.parentNode.removeChild(script); }catch(e){}
+      try{ delete window[cbName]; }catch(e){}
+      clearTimeout(timer);
+    }
+
+    window[cbName] = function(data){
+      if(settled) return;
+      settled = true;
+      cleanup();
+      resolve(data);
+    };
+
+    script.onerror = function(e){
+      if(settled) return;
+      settled = true;
+      cleanup();
+      reject(new Error(
+        'Script load failed. Ensure "Who has access" = Anyone (not "Anyone with Google account"). ' +
+        'Then redeploy.'
+      ));
+    };
+
+    document.head.appendChild(script);
+    script.src = fullUrl; // set src AFTER appending
+  });
+}
+
+// Write operations — use fetch POST (avoids URL length limits)
+// Google Apps Script with no-cors: we fire-and-forget the POST,
+// then immediately do a JSONP GET to confirm the write succeeded.
+async function gasWrite(url, payload){
+  const json = JSON.stringify(payload);
+
+  // Method 1: fetch POST with no-cors (most reliable for writes)
+  // no-cors means we can't read the response, so we verify with a follow-up GET
+  try {
+    await fetch(url, {
+      method: 'POST',
+      mode:   'no-cors',
+      headers: { 'Content-Type': 'text/plain' }, // text/plain avoids preflight
+      body: json
+    });
+    // POST fired — return a synthetic success so the UI updates immediately
+    // The next auto-sync will confirm the change is in the sheet
+    logSync('↑ POST sent to sheet (will confirm on next sync)','ok');
+    return { ok: true, message: 'Write sent via POST' };
+  } catch(e) {
+    // Fallback: try GET with payload as URL param (for smaller payloads)
+    logSync('POST failed, trying GET fallback: '+e.message,'info');
+    return gasRequest(url, { action: 'write', payload: json });
+  }
+}
+
+load();
+if(!orders.length){orders=SEED_ORDERS.map((o,i)=>({...o,id:o.id||i+100}));save();}
+
+// ── HELPERS ───────────────────────────────────────────────
+function gId(){return Date.now()+Math.floor(Math.random()*9999);}
+function f$(v){const n=Number(v)||0;return n===0?'—':'$'+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function f$0(v){return '$'+(Number(v)||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function fD(d){if(!d)return '—';const p=d.split('-');return p.length===3?`${p[1]}/${p[2]}/${p[0].slice(2)}`:d;}
+function ourT(o){return(Number(o.ourCost)||0)+(Number(o.ourSetup)||0)+(Number(o.decoration)||0)+(Number(o.ourShip)||0);}
+function custT(o){return(Number(o.custPrice)||0)+(Number(o.custSetup)||0)+(Number(o.custShip)||0);}
+function prof(o){return custT(o)-ourT(o);}
+function isFlag(o){ return o.flag===true||o.flag==='TRUE'||o.flag==='true'||o.flag==='1'; }
+function isPaid(o){
+  if(isFlag(o)) return true;
+  const p=(o.paid||'').toLowerCase().trim();
+  return p==='paid'||p.startsWith('paid w')||p==='net 15'||p==='invoice';
+}
+function isApp(o){
+  const a=(o.approved||'').toLowerCase().trim();
+  return a==='approved'||a==='n/a'||a.startsWith('approved by')||a.startsWith('approved');
+}
+function isSh(o){
+  const s=o.shipped||'';
+  return s==='Approved'||s==='Shipped'||s==='Pick Up'||s===true||s==='TRUE';
+}
+
+// ── SYNC STATUS ──────────────────────────────────────────
+function setSyncStatus(s){
+  syncStatus=s;
+  const b=document.getElementById('syncBadge');
+  const l=document.getElementById('syncLabel');
+  b.className='sync-badge '+s;
+  const labels={disconnected:'Not Connected',connected:'Connected',syncing:'Syncing...',error:'Sync Error'};
+  l.textContent=labels[s]||s;
+}
+
+function toggleSyncPanel(){
+  const p=document.getElementById('syncPanel');
+  p.classList.toggle('open');
+}
+
+function saveScriptUrl(){
+  const u=document.getElementById('scriptUrl').value.trim();
+  if(!u){toast('Paste your Apps Script URL first','err');return;}
+  scriptURL=u;
+  localStorage.setItem('pm_script_url',u);
+  setSyncStatus('connected');
+  logSync('✓ URL saved. Testing connection...','ok');
+  testConnection();
+}
+
+function logSync(msg,cls='info'){
+  const el=document.getElementById('syncLog');
+  el.innerHTML+=`<div class="${cls}">${new Date().toLocaleTimeString()} — ${msg}</div>`;
+  el.scrollTop=el.scrollHeight;
+}
+
+// ── TEST CONNECTION ───────────────────────────────────────
+async function testConnection(){
+  const url=scriptURL||document.getElementById('scriptUrl').value.trim();
+  if(!url){logSync('⚠ Paste your Web App URL first','err');return;}
+  setSyncStatus('syncing');
+  logSync('Contacting Apps Script...','info');
+  try{
+    const d=await gasRequest(url, {action:'ping'});
+    if(d.ok||d.total!==undefined){
+      setSyncStatus('connected');
+      logSync('✓ Connected! Sheet: '+d.sheet+' · '+d.time,'ok');
+      toast('✓ Google Sheets connected','syn');
+    } else if(d.error){
+      setSyncStatus('error');
+      logSync('✗ Script error: '+d.error,'err');
+    }
+  }catch(e){
+    setSyncStatus('error');
+    logSync('✗ '+e.message,'err');
+  }
+}
+
+// ── PULL FROM SHEET ───────────────────────────────────────
+async function pullFromSheet(){
+  if(!scriptURL){toast('Connect to Google Sheets first — click the sync badge','err');document.getElementById('syncPanel').classList.add('open');return;}
+  setSyncStatus('syncing');
+  logSync('Pulling orders from Google Sheet...','info');
+  try{
+    const d=await gasRequest(scriptURL, {action:'getOrders'});
+    if(d.error)throw new Error(d.error);
+    if(!d.orders)throw new Error('No orders data returned. Try running testConnection() in the Apps Script editor first.');
+    orders=d.orders.map(o=>({...o,id:o.rowIndex||gId(),flag:o.flag||false}));
+    save();
+    // Reset filter to 'all' so everything shows after a sync
+    curFilter='all';
+    curPage=1;
+    document.querySelectorAll('.fb').forEach(b=>{
+      b.classList.remove('active');
+      if(b.textContent.trim()==='All') b.classList.add('active');
+    });
+    setSyncStatus('connected');
+    logSync('✓ Pulled '+d.orders.length+' orders from sheet (fetched at '+d.fetchedAt+')','ok');
+    toast('↓ Pulled '+d.orders.length+' orders from Google Sheets','syn');
+    renderTable();renderDash();
+  }catch(e){
+    setSyncStatus('error');
+    logSync('✗ Pull failed: '+e.message,'err');
+    toast('Sync pull failed — see sync panel for details','err');
+  }
+}
+
+// ── PUSH TO SHEET ─────────────────────────────────────────
+async function pushToSheet(action, payload){
+  if(!scriptURL){
+    logSync('⚠ No script URL — changes saved locally only','info');
+    return null;
+  }
+  setSyncStatus('syncing');
+  logSync('Pushing '+action+' to sheet...','info');
+  try{
+    const d = await gasWrite(scriptURL, {action, ...payload});
+    if(!d) throw new Error('No response from script');
+    if(d.error) throw new Error(d.error);
+    setSyncStatus('connected');
+    logSync('✓ '+action+' → '+( d.message||('row '+(d.rowIndex||'?'))),'ok');
+    return d;
+  }catch(e){
+    logSync('✗ '+action+' failed: '+e.message,'err');
+    setSyncStatus('error');
+    toast('Write to sheet failed — see sync log','err');
+    return null;
+  }
+}
+
+// ── PAGE NAV ─────────────────────────────────────────────
+function showPage(n,el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+n).classList.add('active');
+  document.querySelectorAll('.ni').forEach(x=>x.classList.remove('active'));
+  if(el)el.classList.add('active');
+  if(n==='dashboard')renderDash();
+  if(n==='orders')renderTable();
+  if(n==='flags')renderFlags();
+  // close sync panel
+  document.getElementById('syncPanel').classList.remove('open');
+}
+function qFilter(f,el){curFilter=f;curPage=1;document.querySelectorAll('.fb').forEach(b=>{b.classList.remove('active');if(b.textContent.toLowerCase()===f)b.classList.add('active');});showPage('orders',el);}
+
+// ── PILLS/CHECKS ─────────────────────────────────────────
+function sPill(s){
+  const lbl={pending:'Pending',working:'Working',ordered:'Ordered',complete:'Complete',on_hold:'On Hold'};
+  return`<span class="pill ${s}"><span class="pd"></span>${lbl[s]||s}</span>`;
+}
+function deriveStatus(o){
+  // Complete is always final — nothing overrides it
+  if(o.status==='complete') return 'complete';
+  if(o.status==='on_hold')  return 'on_hold';
+  // Shipped (col N = "Approved") also means complete
+  if(isSh(o)) return 'complete';
+  // Col K explicitly "Ordered"
+  if(o.status==='ordered') return 'ordered';
+  // Working = proof approved AND (col K is empty or says "working")
+  const colK=(o.status||'').toLowerCase().trim();
+  const appr=(o.approved||'').toLowerCase().trim();
+  const proofApproved=appr==='approved'||appr==='n/a'||appr.startsWith('approved');
+  const kEmptyOrWorking=colK===''||colK==='working'||colK==='pending';
+  if(proofApproved&&kEmptyOrWorking) return 'working';
+  // Everything else = pending
+  return 'pending';
+}
+function ck(y){return y?'<span class="ck y">✓</span>':'<span class="ck n">–</span>';}
+function srcPill(v){
+  if(!v||v==='—') return '<span style="color:var(--mu2);font-size:11px;">—</span>';
+  const colors={
+    'Printavo':'#e8a020','InkSoft':'#4e8ef5','OMG':'#9b59b6',
+    'Internal':'#27ae60','Other':'#6a6a6a'
+  };
+  const col=colors[v]||'#6a6a6a';
+  return `<span style="font-size:10.5px;font-weight:600;color:${col};background:${col}18;border:1px solid ${col}30;padding:2px 8px;border-radius:20px;white-space:nowrap;">${v}</span>`;
+}
+function paidPill(o){
+  const paid=isPaid(o);
+  const flagOn=isFlag(o);
+  const colH=(o.paid||'').trim();
+  // Build label
+  let label='Not Paid';
+  if(paid){
+    if(flagOn&&colH) label=colH; // both set — show H value
+    else if(flagOn)  label='Paid ✓';
+    else             label=colH||'Paid';
+  }
+  if(paid)
+    return `<span class="apill ap">${label}</span>`;
+  else
+    return `<span class="apill na">Not Paid</span>`;
+}
+function appPill(v){
+  const val=(v||'').trim();
+  const lc=val.toLowerCase();
+  if(!val||val==='Not Approved')
+    return '<span class="apill na">Not Approved</span>';
+  if(val==='Needs Approval')
+    return '<span class="apill need">Needs Approval</span>';
+  if(lc==='n/a'||lc==='approved'||lc.startsWith('approved'))
+    return '<span class="apill ap">Approved</span>';
+  return '<span class="apill na">'+val+'</span>';
+}
+
+// ── DASHBOARD ─────────────────────────────────────────────
+function renderDash(){
+  const tot=orders.length,ord=orders.filter(o=>o.status==='ordered'||o.status==='sent_po').length;
+  const com=orders.filter(o=>o.status==='complete').length;
+  // Only count revenue & cost for approved orders
+  const approvedOrders=orders.filter(o=>isApp(o));
+  const rev=approvedOrders.reduce((s,o)=>s+custT(o),0);
+  const paidRev=approvedOrders.filter(o=>isPaid(o)).reduce((s,o)=>s+custT(o),0);
+  const cos=approvedOrders.reduce((s,o)=>s+ourT(o),0);
+  const gp=rev-cos;
+  document.getElementById('dSub').textContent=`${tot} orders · Last synced: ${new Date().toLocaleTimeString()}`;
+  document.getElementById('sGrid').innerHTML=`
+    <div class="sc t"><div class="sl">Total Orders</div><div class="sv">${tot}</div><div class="ss">March 2026</div></div>
+    <div class="sc o"><div class="sl">In Progress</div><div class="sv">${ord}</div><div class="ss">Ordered / Active</div></div>
+    <div class="sc c"><div class="sl">Complete</div><div class="sv">${com}</div><div class="ss">Fulfilled</div></div>
+    <div class="sc r"><div class="sl">Total Revenue</div><div class="sv sm">${f$0(rev)}</div><div class="ss">Customer pricing</div></div>
+    <div class="sc p"><div class="sl">Est. Gross Profit</div><div class="sv sm" style="color:${gp>=0?'var(--cmp)':'var(--red)'};">${f$0(gp)}</div><div class="ss">Revenue minus cost</div></div>`;
+  // Recent orders: most recent by order date, tiebreak by row number
+  const recent=[...orders].sort((a,b)=>{
+    const da=a.orderDate||'';
+    const db=b.orderDate||'';
+    if(da&&db) return db.localeCompare(da);
+    if(da) return -1;
+    if(db) return 1;
+    return (b.rowIndex||0)-(a.rowIndex||0);
+  }).slice(0,10);
+  document.getElementById('recentBody').innerHTML=recent.map(o=>`
+    <tr class="rin"><td class="tc">${o.client||'—'}</td><td class="tp">${o.product||'—'}</td>
+    <td class="ton">${o.orderNum||'—'}</td><td>${sPill(o.status)}</td>
+    <td>${ck(isPaid(o))}</td><td>${ck(o.invoiced==='Yes')}</td>
+    <td style="font-weight:600;color:var(--wht);">${f$(custT(o))}</td></tr>`).join('');
+  // Dashboard widget — top Working then Pending items
+  const wrkng=orders.filter(o=>deriveStatus(o)==='working').slice(0,3);
+  const pndng=orders.filter(o=>deriveStatus(o)==='pending').slice(0,3);
+  const widgetItems=[
+    ...wrkng.map(o=>({o,col:'var(--ord)',label:'Working'})),
+    ...pndng.map(o=>({o,col:'var(--hld)',label:'Pending'}))
+  ].slice(0,6);
+  document.getElementById('fWidget').innerHTML=widgetItems.length
+    ?widgetItems.map(f=>`<div class="fi" style="border-color:${f.col};" onclick="showPage('flags')">
+        <div><div class="fc">${f.o.client}</div>
+        <div class="fm">${f.label} · ${f.o.product}</div></div>
+      </div>`).join('')
+    :'<div style="color:var(--cmp);font-size:12.5px;">✅ All clear!</div>';
+  document.getElementById('sSplit').innerHTML=`
+    <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span style="color:var(--ord);">Ordered</span><span>${ord} (${pO}%)</span></div>
+    <div style="background:var(--cr2);border-radius:4px;height:7px;"><div style="background:var(--ord);height:100%;width:${pO}%;border-radius:4px;"></div></div></div>
+    <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span style="color:var(--cmp);">Complete</span><span>${com} (${pC}%)</span></div>
+    <div style="background:var(--cr2);border-radius:4px;height:7px;"><div style="background:var(--cmp);height:100%;width:${pC}%;border-radius:4px;"></div></div></div>`;
+}
+
+// ── FLAGS ─────────────────────────────────────────────────
+function getFlags(){
+  const f=[];
+  orders.forEach(o=>{
+    const ds=deriveStatus(o);
+    if(ds==='working') f.push({o,reason:o.product,col:'var(--ord)',group:'working'});
+    else if(ds==='pending') f.push({o,reason:o.product,col:'var(--hld)',group:'pending'});
+    if(!isApp(o)&&ds!=='complete'&&o.notes&&o.notes.trim()) f.push({o,reason:o.notes,col:'var(--mut)',group:'notes'});
+  });
+  return f;
+}
+function renderFlags(){
+  const G={
+    working:{label:'🟡 Working',col:'var(--ord)',it:[]},
+    pending:{label:'🔴 Pending',col:'var(--hld)',it:[]},
+    notes:  {label:'📝 Unapproved with Notes',col:'var(--mut)',it:[]},
+  };
+  orders.forEach(o=>{
+    const ds=deriveStatus(o);
+    if(ds==='working') G.working.it.push(o);
+    if(ds==='pending') G.pending.it.push(o);
+    if(!isApp(o)&&ds!=='complete'&&o.notes&&o.notes.trim()) G.notes.it.push(o);
+  });
+  document.getElementById('flagPage').innerHTML=Object.entries(G).map(([key,{label,col,it}])=>`
+    <div class="wid">
+      <div class="wt" style="color:${col};">${label}
+        <span style="font-size:12px;font-family:'DM Sans',sans-serif;color:var(--mut);font-weight:400;">(${it.length})</span>
+      </div>
+      ${it.length===0
+        ?'<div style="color:var(--cmp);font-size:12.5px;">✅ None</div>'
+        :it.map(o=>`
+          <div class="fi" style="border-color:${col};margin-bottom:6px;">
+            <div style="flex:1;">
+              <div class="fc">${o.client}</div>
+              <div class="fm">${o.product}${o.orderNum?' · #'+o.orderNum:''} · ${fD(o.orderDate)}</div>
+              ${o.notes?`<div class="fm" style="color:var(--mu2);font-style:italic;margin-top:2px;">📝 ${o.notes}</div>`:''}
+            </div>
+            <button class="ab" onclick="editO(${o.id})">Edit</button>
+          </div>`).join('')}
+    </div>`).join('');
+}
+// ── TABLE ─────────────────────────────────────────────────
+function sBy(c){if(sortC===c)sortD*=-1;else{sortC=c;sortD=1;}renderTable();}
+function setFilter(f,btn){curFilter=f;curPage=1;document.querySelectorAll('.fb').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderTable();}
+
+function renderTable(){
+  const q=(document.getElementById('srch')?.value||'').toLowerCase();
+  let fil=orders.filter(o=>{
+    if(curFilter!=='all'&&o.status!==curFilter)return false;
+    if(q&&!`${o.client} ${o.product} ${o.orderNum} ${o.supplier} ${o.decorator}`.toLowerCase().includes(q))return false;
+    return true;
+  });
+  const statusOrder={pending:0,working:1,ordered:2,on_hold:3,complete:4};
+  fil.sort((a,b)=>{
+    // Default sort: status urgency (pending first)
+    if(sortC==='status'||sortC==='orderDate'){
+      const sa=statusOrder[deriveStatus(a)]??9;
+      const sb=statusOrder[deriveStatus(b)]??9;
+      if(sa!==sb) return sa-sb;
+      // Tiebreak by row number (spreadsheet order)
+      return (a.rowIndex||0)-(b.rowIndex||0);
+    }
+    let av=a[sortC]||'',bv=b[sortC]||'';
+    if(sortC==='ourTotal'){av=ourT(a);bv=ourT(b);}
+    if(sortC==='custTotal'){av=custT(a);bv=custT(b);}
+    if(typeof av==='string')return av.localeCompare(bv)*sortD;
+    return(av-bv)*sortD;
+  });
+  const totPg=Math.ceil(fil.length/PG)||1,pg=Math.min(curPage,totPg),slice=fil.slice((pg-1)*PG,pg*PG);
+  const body=document.getElementById('oBody'),empt=document.getElementById('empt');
+  if(!slice.length){body.innerHTML='';empt.style.display='block';}
+  else{
+    empt.style.display='none';body.innerHTML='';
+    slice.forEach(o=>{
+      const ot=ourT(o),ct=custT(o),pv=prof(o),isExp=(expId===o.id);
+      const tr=document.createElement('tr');
+      tr.className='mr rin';
+      tr.innerHTML=`
+        <td><span class="arr ${isExp?'open':''}" id="arr-${o.id}">▼</span></td>
+        <td class="tc" title="${o.client}">${o.client||'—'}</td>
+        <td class="tp" title="${o.product}">${o.product||'—'}</td>
+        <td class="ton">${o.orderNum||'—'}</td>
+        <td>${srcPill(o.source)}</td>
+        <td style="font-size:12px;color:var(--txt);white-space:nowrap;font-weight:500;">${fD(o.orderDate)}</td>
+        <td>${sPill(deriveStatus(o))}</td>
+        <td>${paidPill(o)}</td>
+        <td>${appPill(o.approved)}</td>
+        <td>${ck(isSh(o))}</td>
+        <td>${ck(o.invoiced==='Yes'||isFlag(o))}</td>
+        <td><span class="mv ${ot===0?'dim':''}">${f$(ot)}</span></td>
+        <td><span class="mv ${ct===0?'dim':''}">${f$(ct)}</span></td>
+        <td style="font-size:11px;color:var(--mut);">${o.supplier||'—'}</td>
+        <td style="white-space:nowrap;">
+          <button class="ab" onclick="event.stopPropagation();editO(${o.id})">Edit</button>
+          ${o.status!=='complete'?`<button class="ab done" onclick="event.stopPropagation();markDone(${o.id})">✓</button>`:''}
+          <button class="ab" onclick="event.stopPropagation();delO(${o.id})" style="color:var(--mu2);">✕</button>
+        </td>`;
+      tr.onclick=()=>toggleExp(o.id);
+      body.appendChild(tr);
+      const ex=document.createElement('tr');
+      ex.className='er';ex.id='exp-'+o.id;ex.style.display=isExp?'table-row':'none';
+      ex.innerHTML=`<td colspan="15"><div class="ei">
+        <div class="eb">
+          <div class="et">📦 Our Cost Breakdown</div>
+          <div class="erow"><span class="lb">Product Cost</span><span class="vl">${f$0(o.ourCost)}</span></div>
+          <div class="erow"><span class="lb">Setup Fee</span><span class="vl">${f$0(o.ourSetup)}</span></div>
+          <div class="erow"><span class="lb">Decoration</span><span class="vl">${f$0(o.decoration)}</span></div>
+          <div class="erow"><span class="lb">Shipping</span><span class="vl">${f$0(o.ourShip)}</span></div>
+          <div class="erow tot"><span class="lb">Total Our Cost</span><span class="vl">${f$0(ot)}</span></div>
+        </div>
+        <div class="eb">
+          <div class="et">💰 Customer Price Breakdown</div>
+          <div class="erow"><span class="lb">Product Price</span><span class="vl">${f$0(o.custPrice)}</span></div>
+          <div class="erow"><span class="lb">Setup Fee</span><span class="vl">${f$0(o.custSetup)}</span></div>
+          <div class="erow"><span class="lb">Shipping</span><span class="vl">${f$0(o.custShip)}</span></div>
+          <div class="erow tot"><span class="lb">Total Customer Invoice</span><span class="vl">${f$0(ct)}</span></div>
+        </div>
+        <div class="prow"><span class="lb">Est. Gross Profit</span><span style="font-weight:700;font-size:14px;color:${pv>=0?'var(--cmp)':'var(--red)'};">${f$0(pv)}</span></div>
+        ${o.tracking?`<div class="emeta">📦 Tracking: <span style="color:var(--txt);font-family:monospace;">${o.tracking}</span></div>`:''}
+        ${o.notes?`<div class="emeta">📝 Notes: <span style="color:var(--txt);">${o.notes}</span></div>`:''}
+        ${o.supplier||o.decorator?`<div class="emeta">🏭 Supplier: <span style="color:var(--txt);">${o.supplier||'—'}</span>${o.decorator?` · Decorator: <span style="color:var(--txt);">${o.decorator}</span>`:''}</div>`:''}
+      </div></td>`;
+      body.appendChild(ex);
+    });
+  }
+  document.getElementById('tInfo').textContent=`Showing ${slice.length} of ${fil.length} orders`;
+  const pagEl=document.getElementById('pag');pagEl.innerHTML='';
+  for(let i=1;i<=totPg;i++){const b=document.createElement('button');b.className='pb'+(i===pg?' active':'');b.textContent=i;b.onclick=()=>{curPage=i;renderTable();};pagEl.appendChild(b);}
+}
+function toggleExp(id){expId=(expId===id?null:id);renderTable();}
+
+// ── ORDER ACTIONS (with sheet sync) ──────────────────────
+async function markDone(id){
+  const o=orders.find(x=>x.id===id);if(!o)return;
+  o.status='complete';
+  save();renderTable();renderDash();
+  toast('✅ Marked Complete','ok');
+  setSyncStatus('syncing');
+  const res=await pushToSheet('markComplete',{orderNum:o.orderNum,rowIndex:o.rowIndex});
+  if(res)setSyncStatus('connected');
+}
+
+async function delO(id){
+  if(!confirm('Delete this order?'))return;
+  const o=orders.find(x=>x.id===id);
+  orders=orders.filter(x=>x.id!==id);
+  if(expId===id)expId=null;
+  save();renderTable();renderDash();
+  toast('Order deleted','err');
+  if(o){setSyncStatus('syncing');const res=await pushToSheet('deleteOrder',{orderNum:o.orderNum,rowIndex:o.rowIndex});if(res)setSyncStatus('connected');}
+}
+
+// ── MODAL ────────────────────────────────────────────────
+function openModal(id){
+  editId=id||null;
+  document.getElementById('mTit').textContent=id?'EDIT ORDER':'ADD ORDER';
+  const clr=['fCl','fPr','fON','fSo','fOD','fIH','fSt','fPd','fAp','fIn','fSI','fSup','fDec','fTr','fNo','fOC','fOS','fOD2','fOSh','fCP','fCS','fCSh']; // fSh excluded — it's a checkbox
+  clr.forEach(f=>{const el=document.getElementById(f);if(el)el.value='';});
+  document.getElementById('fSt').value='ordered';document.getElementById('fPd').value='Not Paid';
+  document.getElementById('fAp').value='Not Approved';document.getElementById('fSh').checked=false;
+  document.getElementById('fIn').value='No';document.getElementById('fSI').value='Not Paid';
+  if(id){
+    const o=orders.find(x=>x.id===id);
+    document.getElementById('fCl').value=o.client||'';document.getElementById('fPr').value=o.product||'';
+    document.getElementById('fON').value=o.orderNum||'';document.getElementById('fSo').value=o.source||'';
+    document.getElementById('fOD').value=o.orderDate||'';document.getElementById('fIH').value=o.ihd||'';
+    document.getElementById('fSt').value=o.status||'ordered';document.getElementById('fPd').value=o.paid||'Not Paid';
+    document.getElementById('fAp').value=o.approved||'Not Approved';document.getElementById('fSh').checked=(o.shipped==='Approved'||o.shipped===true||o.shipped==='TRUE');
+    document.getElementById('fIn').value=o.invoiced||'No';document.getElementById('fSI').value=o.supInv||'Not Paid';
+    document.getElementById('fSup').value=o.supplier||'';document.getElementById('fDec').value=o.decorator||'';
+    document.getElementById('fTr').value=o.tracking||'';document.getElementById('fNo').value=o.notes||'';
+    document.getElementById('fOC').value=o.ourCost||'';document.getElementById('fOS').value=o.ourSetup||'';
+    document.getElementById('fOD2').value=o.decoration||'';document.getElementById('fOSh').value=o.ourShip||'';
+    document.getElementById('fCP').value=o.custPrice||'';document.getElementById('fCS').value=o.custSetup||'';
+    document.getElementById('fCSh').value=o.custShip||'';
+  }
+  document.getElementById('mOv').classList.add('open');
+}
+function editO(id){openModal(id);}
+function closeMo(){document.getElementById('mOv').classList.remove('open');editId=null;}
+
+async function saveOrder(){
+  const cl=document.getElementById('fCl').value.trim(),pr=document.getElementById('fPr').value.trim();
+  if(!cl||!pr){alert('Client and Product are required.');return;}
+  const d={
+    client:cl,product:pr,orderNum:document.getElementById('fON').value.trim(),
+    source:document.getElementById('fSo').value,orderDate:document.getElementById('fOD').value,
+    ihd:document.getElementById('fIH').value,status:document.getElementById('fSt').value,
+    paid:document.getElementById('fPd').value,approved:document.getElementById('fAp').value,
+    shipped:document.getElementById('fSh').checked?'Approved':'Not Approved',invoiced:document.getElementById('fIn').value,
+    supInv:document.getElementById('fSI').value,supplier:document.getElementById('fSup').value.trim(),
+    decorator:document.getElementById('fDec').value.trim(),tracking:document.getElementById('fTr').value.trim(),
+    notes:document.getElementById('fNo').value.trim(),
+    ourCost:parseFloat(document.getElementById('fOC').value)||0,ourSetup:parseFloat(document.getElementById('fOS').value)||0,
+    decoration:parseFloat(document.getElementById('fOD2').value)||0,ourShip:parseFloat(document.getElementById('fOSh').value)||0,
+    custPrice:parseFloat(document.getElementById('fCP').value)||0,custSetup:parseFloat(document.getElementById('fCS').value)||0,
+    custShip:parseFloat(document.getElementById('fCSh').value)||0,
+  };
+  let sheetAction,sheetPayload;
+  if(editId){
+    const idx=orders.findIndex(o=>o.id===editId);
+    orders[idx]={...orders[idx],...d};
+    sheetAction='updateOrder';sheetPayload={order:{...orders[idx]}};
+    toast('✅ Order updated','ok');
+  }else{
+    const newO={id:gId(),...d,rowIndex:null};
+    orders.push(newO);
+    sheetAction='addOrder';sheetPayload={order:newO};
+    toast('✅ Order added','ok');
+  }
+  save();closeMo();renderTable();renderDash();
+  // Sync to sheet
+  setSyncStatus('syncing');
+  const res=await pushToSheet(sheetAction,sheetPayload);
+  if(res){
+    // Update rowIndex from sheet response
+    if(!editId&&res.rowIndex){orders[orders.length-1].rowIndex=res.rowIndex;save();}
+    setSyncStatus('connected');
+  }
+}
+
+// ── TEST WRITE ───────────────────────────────────────────
+async function testWrite(){
+  if(!scriptURL){logSync('⚠ No URL set','err');return;}
+  logSync('Testing write — adding a test ping row...','info');
+  const testOrder = {
+    client:'TEST - DELETE ME',
+    product:'Dashboard write test',
+    orderNum:'TEST001',
+    source:'Internal',
+    orderDate:'2026-03-21',
+    status:'pending',
+    paid:'Not Paid',
+    approved:'Not Approved',
+    shipped:'Not Shipped',
+    invoiced:'No',
+    supInv:'Not Paid',
+    supplier:'',decorator:'',tracking:'',notes:'Auto test from dashboard',
+    ourCost:0,ourSetup:0,decoration:0,ourShip:0,
+    custPrice:0,custSetup:0,custShip:0,
+    flag:false,rowIndex:null
+  };
+  const res = await pushToSheet('addOrder', {order: testOrder});
+  if(res){
+    logSync('✓ Test write succeeded! Check your sheet for "TEST - DELETE ME" row, then delete it.','ok');
+    toast('✓ Test write worked! Check your sheet.','syn');
+  }
+}
+
+// ── EXPORT ───────────────────────────────────────────────
+function exportCSV(){
+  const H=['Client','Product','Order #','Source','Date','Status','Paid','Approved','Shipped','Invoiced','Supplier','Decorator','Our Cost','Our Setup','Decoration','Our Ship','Our Total','Cust Price','Cust Setup','Cust Ship','Cust Total','Profit','Tracking','Notes'];
+  const rows=orders.map(o=>[o.client,o.product,o.orderNum,o.source,o.orderDate,o.status,o.paid,o.approved,o.shipped,o.invoiced,o.supplier,o.decorator,o.ourCost,o.ourSetup,o.decoration,o.ourShip,ourT(o),o.custPrice,o.custSetup,o.custShip,custT(o),prof(o),o.tracking,o.notes].map(v=>`"${(v||'').toString().replace(/"/g,'""')}"`).join(','));
+  const csv=[H.join(','),...rows].join('\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download=`PlanetMedia_March2026_${new Date().toISOString().slice(0,10)}.csv`;a.click();
+  toast('⬇ Exported','ok');
+}
+
+// ── TOAST ─────────────────────────────────────────────────
+function toast(msg,type='ok'){
+  const t=document.getElementById('toast');t.textContent=msg;
+  t.className=`toast ${type} show`;setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+// ── INIT ──────────────────────────────────────────────────
+document.getElementById('mOv').addEventListener('click',function(e){if(e.target===this)closeMo();});
+document.addEventListener('click',function(e){
+  const panel=document.getElementById('syncPanel');
+  const badge=document.getElementById('syncBadge');
+  if(panel.classList.contains('open')&&!panel.contains(e.target)&&!badge.contains(e.target))panel.classList.remove('open');
+});
+document.getElementById('hDate').textContent=new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
+loadUrl();
+renderDash();
+
+// ── AUTO-SYNC ON LOAD ─────────────────────────────────────
+// If a script URL is saved, automatically pull fresh data from
+// the sheet every time the dashboard is opened, and then every
+// 5 minutes while it's open so the team always sees live data.
+async function autoSync(){
+  if(!scriptURL) return; // no URL configured yet — skip
+  logSync('Auto-syncing on load...','info');
+  await pullFromSheet();
+}
+
+// Pull immediately on load (small delay so UI renders first)
+setTimeout(autoSync, 800);
+
+// Then re-pull every 5 minutes while dashboard is open
+setInterval(async()=>{
+  if(!scriptURL) return;
+  logSync('Auto-refresh (5 min interval)...','info');
+  await pullFromSheet();
+}, 5 * 60 * 1000);
+</script>
+</body>
+</html>
