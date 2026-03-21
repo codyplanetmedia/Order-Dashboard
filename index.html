@@ -220,11 +220,13 @@ tbody tr.er td{padding:0;background:var(--cr2);border-bottom:1px solid var(--bdr
     <label>Apps Script Web App URL</label>
     <input type="text" id="scriptUrl" placeholder="https://script.google.com/macros/s/.../exec">
   </div>
+  <div class="sp-row">
+    <label>Google Sheet Script URL (for write-back)</label>
+    <input type="text" id="sheetUrl" placeholder="https://script.google.com/macros/s/.../exec">
+  </div>
   <div class="sp-btns">
-    <button class="btn" onclick="testConnection()">Test Connection</button>
-    <button class="btn" onclick="saveScriptUrl()">Save & Connect</button>
-    <button class="btn sec" onclick="pullFromSheet()">↓ Pull Sheet Now</button>
-    <button class="btn sec" onclick="testWrite()">Test Write</button>
+    <button class="btn" onclick="saveSheetUrl()">Save Sheet URL</button>
+    <button class="btn sec" onclick="syncFromSupabase()">↓ Sync Now</button>
   </div>
   <div class="sp-log" id="syncLog"><span class="info">Paste your Apps Script Web App URL to connect. Once connected, the dashboard auto-syncs on every load and every 5 minutes.</span></div>
 </div>
@@ -445,6 +447,24 @@ function mapToDB(o){
   };
 }
 
+// ── SHEET WRITE-BACK ─────────────────────────────────────────
+// When dashboard makes changes, also push to Google Sheet
+let SHEET_SCRIPT_URL = localStorage.getItem('pm_sheet_url') || '';
+
+async function pushToSheet(action, payload) {
+  if (!SHEET_SCRIPT_URL) return; // no sheet URL configured — skip
+  try {
+    await fetch(SHEET_SCRIPT_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action, ...payload })
+    });
+  } catch(e) {
+    console.warn('Sheet write-back failed:', e.message);
+  }
+}
+
 // ── REALTIME SUBSCRIPTION ────────────────────────────────────
 function subscribeRealtime(){
   supa.channel('orders-changes')
@@ -586,6 +606,13 @@ function setSyncStatus(s){
 function toggleSyncPanel(){ /* no-op — Supabase is always connected */ }
 function saveScriptUrl(){ /* no-op */ }
 function logSync(msg,cls){ console.log('[Sync]', msg); }
+function saveSheetUrl(){
+  const u=document.getElementById('sheetUrl').value.trim();
+  if(!u){toast('Paste your Apps Script URL first','err');return;}
+  SHEET_SCRIPT_URL=u;
+  localStorage.setItem('pm_sheet_url',u);
+  toast('✓ Sheet URL saved','syn');
+}
 function testConnection(){ syncFromSupabase(); }
 function testWrite(){ /* no-op */ }
 
@@ -895,6 +922,7 @@ async function markDone(id){
     const idx=orders.findIndex(x=>x.id===id);
     orders[idx]=updated;
     setSyncStatus('connected');
+    pushToSheet('markComplete', {rowIndex: o.rowIndex});
     toast('✅ Marked Complete','ok');
     renderTable();renderDash();
   }catch(e){
@@ -911,6 +939,7 @@ async function delO(id){
     orders=orders.filter(x=>x.id!==id);
     if(expId===id)expId=null;
     setSyncStatus('connected');
+    pushToSheet('deleteRow', {rowIndex: orders.find(x=>x.id===id)?.rowIndex});
     toast('Order deleted','err');
     renderTable();renderDash();
   }catch(e){
@@ -990,6 +1019,12 @@ async function saveOrder(){
       toast('✅ Order added','ok');
     }
     setSyncStatus('connected');
+    // Also write back to Google Sheet
+    if(editId){
+      pushToSheet('updateRow', {order: mapToDB(orders.find(o=>o.id===editId))});
+    } else {
+      pushToSheet('addRow', {order: mapToDB(orders[orders.length-1])});
+    }
     closeMo();
     renderTable();
     renderDash();
@@ -1025,6 +1060,13 @@ document.addEventListener('click',function(e){
 document.getElementById('hDate').textContent=new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
 // ── INIT ──────────────────────────────────────────────
 // Load seed data instantly, then sync from Supabase
+// Load saved sheet URL
+const savedSheetUrl = localStorage.getItem('pm_sheet_url');
+if(savedSheetUrl) {
+  SHEET_SCRIPT_URL = savedSheetUrl;
+  const el = document.getElementById('sheetUrl');
+  if(el) el.value = savedSheetUrl;
+}
 orders = SEED_ORDERS.map((o,i)=>({...o, id: o.id||(i+100)}));
 setSyncStatus('syncing');
 renderDash();
