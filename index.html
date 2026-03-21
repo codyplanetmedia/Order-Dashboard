@@ -611,7 +611,9 @@ function saveSheetUrl(){
   if(!u){toast('Paste your Apps Script URL first','err');return;}
   SHEET_SCRIPT_URL=u;
   localStorage.setItem('pm_sheet_url',u);
-  toast('✓ Sheet URL saved','syn');
+  toast('✓ Sheet URL saved — sync active','syn');
+  // Hide the sync panel once configured
+  document.getElementById('syncPanel').classList.remove('open');
 }
 function testConnection(){ syncFromSupabase(); }
 function testWrite(){ /* no-op */ }
@@ -1060,12 +1062,15 @@ document.addEventListener('click',function(e){
 document.getElementById('hDate').textContent=new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
 // ── INIT ──────────────────────────────────────────────
 // Load seed data instantly, then sync from Supabase
-// Load saved sheet URL
+// Load saved sheet URL — hide panel if already configured
 const savedSheetUrl = localStorage.getItem('pm_sheet_url');
 if(savedSheetUrl) {
   SHEET_SCRIPT_URL = savedSheetUrl;
   const el = document.getElementById('sheetUrl');
   if(el) el.value = savedSheetUrl;
+  // Already configured — don't show the panel on load
+  const panel = document.getElementById('syncPanel');
+  if(panel) panel.style.display = 'none';
 }
 orders = SEED_ORDERS.map((o,i)=>({...o, id: o.id||(i+100)}));
 setSyncStatus('syncing');
