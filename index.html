@@ -383,14 +383,19 @@ const SK='pm_v5';
 let orders=[];
 let editId=null,curFilter='all',sortC='status',sortD=1,curPage=1,expId=null;
 const PG=25;
-let scriptURL='';
+let scriptURL='https://script.google.com/macros/s/AKfycbx_RQnGucw-wzkRCyz4RB2jjxYDZ1fLjctrS_ZRp12oM_Vn5FxI0Fj1-oFjJhQw1psU/exec';
 let syncStatus='disconnected'; // disconnected | connected | syncing | error
 
 function save(){try{localStorage.setItem(SK,JSON.stringify(orders));}catch(e){}}
 function load(){try{const d=localStorage.getItem(SK);if(d)orders=JSON.parse(d);}catch(e){orders=[];}}
 function loadUrl(){
-  scriptURL=localStorage.getItem('pm_script_url')||'';
-  if(scriptURL){document.getElementById('scriptUrl').value=scriptURL;setSyncStatus('connected');}
+  // scriptURL is hardcoded — use localStorage override only if set
+  const saved=localStorage.getItem('pm_script_url');
+  if(saved) scriptURL=saved;
+  if(scriptURL){
+    document.getElementById('scriptUrl').value=scriptURL;
+    setSyncStatus('connected');
+  }
 }
 
 // ── SYNC ENGINE ──────────────────────────────────────────────
@@ -564,7 +569,13 @@ async function pullFromSheet(){
     const d=await gasRequest(scriptURL, {action:'getOrders'});
     if(d.error)throw new Error(d.error);
     if(!d.orders)throw new Error('No orders data returned. Try running testConnection() in the Apps Script editor first.');
-    orders=d.orders.map(o=>({...o,id:o.rowIndex||gId(),flag:o.flag||false}));
+    orders=d.orders.map(o=>({
+      ...o,
+      id:   o.rowIndex||gId(),
+      flag: o.flag||false,
+      // Ensure orderDate is populated — Apps Script sends best date already
+      orderDate: o.orderDate||o.date2||''
+    }));
     save();
     // Reset filter to 'all' so everything shows after a sync
     curFilter='all';
@@ -613,7 +624,7 @@ function showPage(n,el){
   document.getElementById('page-'+n).classList.add('active');
   document.querySelectorAll('.ni').forEach(x=>x.classList.remove('active'));
   if(el)el.classList.add('active');
-  if(n==='dashboard')renderDash();
+  if(n==='dashboard'){renderDash();}
   if(n==='orders')renderTable();
   if(n==='flags')renderFlags();
   // close sync panel
@@ -698,10 +709,11 @@ function renderDash(){
     <div class="sc c"><div class="sl">Complete</div><div class="sv">${com}</div><div class="ss">Fulfilled</div></div>
     <div class="sc r"><div class="sl">Total Revenue</div><div class="sv sm">${f$0(rev)}</div><div class="ss">Customer pricing</div></div>
     <div class="sc p"><div class="sl">Est. Gross Profit</div><div class="sv sm" style="color:${gp>=0?'var(--cmp)':'var(--red)'};">${f$0(gp)}</div><div class="ss">Revenue minus cost</div></div>`;
-  // Recent orders: most recent by order date, tiebreak by row number
+  // bestDate: prefer orderDate, fall back to date2, then rowIndex
+  function bestDate(o){ return o.orderDate||o.date2||''; }
+  // Recent orders: most recent date first
   const recent=[...orders].sort((a,b)=>{
-    const da=a.orderDate||'';
-    const db=b.orderDate||'';
+    const da=bestDate(a), db=bestDate(b);
     if(da&&db) return db.localeCompare(da);
     if(da) return -1;
     if(db) return 1;
