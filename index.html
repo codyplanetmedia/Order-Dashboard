@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Planet Media — Order Dashboard</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{--red:#C0202A;--red-d:#8f151d;--red-g:rgba(192,32,42,0.12);--blk:#0c0c0c;--drk:#141414;--crd:#1a1a1a;--cr2:#202020;--cr3:#272727;--bdr:#272727;--bd2:#333;--txt:#efefef;--mut:#6a6a6a;--mu2:#444;--wht:#fff;--ord:#e8a020;--cmp:#27ae60;--hld:#e74c3c;--blu:#4e8ef5;--pur:#9b59b6;--syn:#00c9a7;}
@@ -208,25 +207,28 @@ tbody tr.er td{padding:0;background:var(--cr2);border-bottom:1px solid var(--bdr
   </div>
   <div class="hdr-mid">
     <div class="hdr-title">ORDER MANAGEMENT</div>
-    <div class="sync-badge connected" id="syncBadge" onclick="toggleSyncPanel()" title="Settings" style="cursor:pointer;">
+    <div class="sync-badge" id="syncBadge" onclick="toggleSyncPanel()" title="Google Sheets Sync">
       <span class="sync-dot"></span>
-      <span id="syncLabel">Live</span>
+      <span id="syncLabel">Not Connected</span>
     </div>
   </div>
   <div class="hdr-date" id="hDate"></div>
 </header>
 
+<!-- SYNC PANEL -->
 <div class="sync-panel" id="syncPanel">
-  <div class="sp-title">⚙ SETTINGS</div>
+  <div class="sp-title">🔗 GOOGLE SHEETS SYNC</div>
   <div class="sp-row">
-    <label>Google Sheet Apps Script URL</label>
-    <input type="text" id="sheetUrl" placeholder="https://script.google.com/macros/s/.../exec">
+    <label>Apps Script Web App URL</label>
+    <input type="text" id="scriptUrl" placeholder="https://script.google.com/macros/s/.../exec">
   </div>
   <div class="sp-btns">
-    <button class="btn" onclick="saveSheetUrl()">Save & Connect Sheet</button>
-    <button class="btn sec" onclick="syncFromSupabase()">↓ Refresh Data</button>
+    <button class="btn" onclick="testConnection()">Test Connection</button>
+    <button class="btn" onclick="saveScriptUrl()">Save & Connect</button>
+    <button class="btn sec" onclick="pullFromSheet()">↓ Pull Sheet Now</button>
+    <button class="btn sec" onclick="testWrite()">Test Write</button>
   </div>
-  <div class="sp-log" id="syncLog"></div>
+  <div class="sp-log" id="syncLog"><span class="info">Paste your Apps Script Web App URL to connect. Once connected, the dashboard auto-syncs on every load and every 5 minutes.</span></div>
 </div>
 
 <div class="app">
@@ -278,6 +280,16 @@ tbody tr.er td{padding:0;background:var(--cr2);border-bottom:1px solid var(--bdr
     <!-- ALL ORDERS -->
     <div class="page" id="page-orders">
       <div class="ph"><div class="pt">ALL ORDERS</div><div class="ps">Click any row to expand cost &amp; revenue · Changes sync to Google Sheets automatically</div></div>
+      <!-- Period filter bar -->
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;" id="periodBar">
+        <span style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--mut);margin-right:4px;">Filter:</span>
+        <button class="mc active" onclick="setPeriod('month',this)">This Month</button>
+        <button class="mc" onclick="setPeriod('week',this)">This Week</button>
+        <button class="mc" onclick="setPeriod('today',this)">Today</button>
+        <div style="width:1px;height:20px;background:var(--border);margin:0 4px;"></div>
+        <div id="mBar" style="display:flex;gap:7px;flex-wrap:wrap;"></div>
+        <button class="mc" onclick="setPeriod('all',this)" style="margin-left:4px;">All Time</button>
+      </div>
       <div class="tb">
         <div class="sb">
           <span style="color:var(--mut);font-size:13px;">🔍</span>
@@ -374,109 +386,29 @@ tbody tr.er td{padding:0;background:var(--cr2);border-bottom:1px solid var(--bdr
 <div class="toast" id="toast"></div>
 
 <script>
-const SEED_ORDERS = [{"row_index":100,"client":"MCMC","product":"5 Yard Signs","order_num":"1002107","source":"InkSoft","order_date":"2026-03-02","date2":"2026-03-04","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Approved","invoiced":"No","flag":false,"sup_inv":"Not Paid","supplier":"Sinalite","decorator":"","our_cost":35.45,"our_setup":0.0,"decoration":0.0,"our_ship":21.76,"cust_price":80.0,"cust_setup":0.0,"cust_ship":10.0,"tracking":"","notes":""},{"row_index":101,"client":"Skyline Real Estate","product":"Apparel - Rosa Bell","order_num":"1002106","source":"InkSoft","order_date":"","date2":"2026-03-04","ihd":"","status":"ordered","paid":"Paid","approved":"N/A","shipped":"Not Approved","invoiced":"No","flag":false,"sup_inv":"Paid","supplier":"","decorator":"","our_cost":0.0,"our_setup":0.0,"decoration":0.0,"our_ship":0.0,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":"need substitute color"},{"row_index":102,"client":"Service Rest","product":"Apparel - Joseph","order_num":"1002102","source":"InkSoft","order_date":"","date2":"2026-03-04","ihd":"","status":"ordered","paid":"Paid","approved":"N/A","shipped":"Not Approved","invoiced":"No","flag":false,"sup_inv":"Paid","supplier":"Sanmar/SS","decorator":"Krown","our_cost":0.0,"our_setup":0.0,"decoration":0.0,"our_ship":0.0,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":""},{"row_index":103,"client":"Hokr","product":"1/4 Zip","order_num":"2001518","source":"Printavo","order_date":"","date2":"2026-03-03","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Approved","invoiced":"No","flag":false,"sup_inv":"Not Paid","supplier":"SS","decorator":"Krown","our_cost":0.0,"our_setup":0.0,"decoration":0.0,"our_ship":0.0,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":""},{"row_index":104,"client":"Grant - KW Cards","product":"Bus Cards - 500","order_num":"2001516","source":"Printavo","order_date":"","date2":"2026-03-03","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Approved","invoiced":"No","flag":false,"sup_inv":"Not Paid","supplier":"4Over","decorator":"","our_cost":14.46,"our_setup":0.0,"decoration":0.0,"our_ship":11.25,"cust_price":50.0,"cust_setup":0.0,"cust_ship":10.0,"tracking":"","notes":""},{"row_index":105,"client":"Pub 42","product":"Qty 5 - Posters","order_num":"2001514","source":"Printavo","order_date":"","date2":"2026-03-03","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Approved","invoiced":"No","flag":false,"sup_inv":"Not Paid","supplier":"Allegra","decorator":"","our_cost":0.0,"our_setup":0.0,"decoration":0.0,"our_ship":0.0,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":""},{"row_index":106,"client":"Vet Partners Plymouth","product":"Store Order - Alyssa Walton","order_num":"1002105","source":"InkSoft","order_date":"","date2":"2026-03-05","ihd":"","status":"ordered","paid":"Paid","approved":"N/A","shipped":"Not Approved","invoiced":"No","flag":false,"sup_inv":"Paid","supplier":"Sanmar","decorator":"Kodiak","our_cost":0.0,"our_setup":0.0,"decoration":0.0,"our_ship":0.0,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":""},{"row_index":107,"client":"PRG","product":"Amber Pointe - Brochures","order_num":"2001502","source":"Printavo","order_date":"2026-02-26","date2":"2026-02-20","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved by Kristy","shipped":"Not Approved","invoiced":"Yes","flag":true,"sup_inv":"Not Paid","supplier":"Printforce","decorator":"","our_cost":0.0,"our_setup":0.0,"decoration":0.0,"our_ship":0.0,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":"quote"},{"row_index":108,"client":"Liz Lund","product":"Heated Jackets","order_num":"2001510","source":"Printavo","order_date":"2026-02-24","date2":"2026-02-26","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved by Liz","shipped":"Not Approved","invoiced":"Yes","flag":true,"sup_inv":"Not Paid","supplier":"","decorator":"","our_cost":0.0,"our_setup":0.0,"decoration":0.0,"our_ship":0.0,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":""},{"row_index":109,"client":"Jordan Radel","product":"Jolt?","order_num":"2001511","source":"","order_date":"","date2":"2026-03-05","ihd":"","status":"ordered","paid":"Paid w/ Card","approved":"Approved by Jordan","shipped":"Not Approved","invoiced":"Yes","flag":true,"sup_inv":"Paid","supplier":"ETS Express","decorator":"","our_cost":0.0,"our_setup":0.0,"decoration":0.0,"our_ship":0.0,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":""},{"row_index":110,"client":"PRG","product":"Valet Keychains","order_num":"2001522","source":"Printavo","order_date":"","date2":"2026-03-04","ihd":"","status":"pending","paid":"Not Paid","approved":"Approved by Kristy","shipped":"Not Approved","invoiced":"Yes","flag":true,"sup_inv":"Not Paid","supplier":"Promoful","decorator":"","our_cost":0.0,"our_setup":0.0,"decoration":0.0,"our_ship":0.0,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":""},{"row_index":111,"client":"PRG","product":"Store order - Taylor Lemke","order_num":"1002108","source":"InkSoft","order_date":"","date2":"2026-03-05","ihd":"","status":"ordered","paid":"Paid w/ Card","approved":"Not Approved","shipped":"Not Approved","invoiced":"Yes","flag":true,"sup_inv":"Paid","supplier":"","decorator":"","our_cost":0.0,"our_setup":0.0,"decoration":0.0,"our_ship":0.0,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":""},{"row_index":112,"client":"Winnebago","product":"Bus Cards - Tracey Mowery","order_num":"1002109","source":"InkSoft","order_date":"","date2":"2026-03-05","ihd":"","status":"ordered","paid":"Paid w/ Card","approved":"N/A","shipped":"Not Approved","invoiced":"Yes","flag":true,"sup_inv":"Paid","supplier":"4Over","decorator":"","our_cost":5.0,"our_setup":0.0,"decoration":0.0,"our_ship":10.25,"cust_price":26.75,"cust_setup":0.0,"cust_ship":10.0,"tracking":"","notes":""},{"row_index":113,"client":"Satoree","product":"Business Cards - All employess (20 Sets)","order_num":"2001524","source":"Printavo","order_date":"","date2":"2026-03-05","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved by Brittany","shipped":"Not Approved","invoiced":"Yes","flag":true,"sup_inv":"Not Paid","supplier":"4Over","decorator":"","our_cost":813.0,"our_setup":0.0,"decoration":0.0,"our_ship":22.37,"cust_price":1700.0,"cust_setup":0.0,"cust_ship":85.0,"tracking":"","notes":""},{"row_index":114,"client":"MCMC","product":"AJ Wilwerding","order_num":"1002110","source":"InkSoft","order_date":"","date2":"2026-03-05","ihd":"","status":"ordered","paid":"Net 15","approved":"Approved by Michael","shipped":"Approved","invoiced":"Yes","flag":true,"sup_inv":"Not Paid","supplier":"Sanmar","decorator":"Krown","our_cost":75.5,"our_setup":0.0,"decoration":0.0,"our_ship":7.89,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":""},{"row_index":115,"client":"Winnebago","product":"Business Cards - Danielle Garcia","order_num":"1002111","source":"InkSoft","order_date":"","date2":"2026-03-09","ihd":"","status":"ordered","paid":"Not Paid","approved":"Not Approved","shipped":"Not Approved","invoiced":"Yes","flag":true,"sup_inv":"Not Paid","supplier":"4Over","decorator":"","our_cost":5.0,"our_setup":0.0,"decoration":0.0,"our_ship":10.25,"cust_price":26.75,"cust_setup":0.0,"cust_ship":10.0,"tracking":"","notes":""},{"row_index":116,"client":"Planet Media","product":"Qty100 - Flyer","order_num":"","source":"","order_date":"2026-03-09","date2":"","ihd":"","status":"ordered","paid":"Not Paid","approved":"Not Approved","shipped":"Not Approved","invoiced":"No","flag":false,"sup_inv":"Not Paid","supplier":"Printforce","decorator":"","our_cost":22.29,"our_setup":0.0,"decoration":0.0,"our_ship":0.0,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":""},{"row_index":118,"client":"Kingpinz","product":"Nader- 1/4 Zip","order_num":"2001528","source":"Printavo","order_date":"2026-03-09","date2":"","ihd":"","status":"ordered","paid":"Not Paid","approved":"Not Approved","shipped":"Not Approved","invoiced":"No","flag":false,"sup_inv":"Not Paid","supplier":"","decorator":"","our_cost":0.0,"our_setup":0.0,"decoration":0.0,"our_ship":0.0,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":""},{"row_index":119,"client":"BMM","product":"Qty 27 - Polos","order_num":"1002112","source":"InkSoft","order_date":"2026-03-10","date2":"2026-03-11","ihd":"","status":"ordered","paid":"Send QB invoice","approved":"Not Approved","shipped":"Approved","invoiced":"Yes","flag":true,"sup_inv":"Not Paid","supplier":"Sanmar","decorator":"Krown","our_cost":469.26,"our_setup":0.0,"decoration":0.0,"our_ship":0.0,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":""},{"row_index":120,"client":"Skillful Carpentry","product":"Qty 10 - Yard Signs","order_num":"2001520","source":"Printavo","order_date":"2026-03-10","date2":"2026-03-03","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Approved","invoiced":"Yes","flag":true,"sup_inv":"Not Paid","supplier":"Sinalite","decorator":"","our_cost":64.89,"our_setup":0.0,"decoration":0.0,"our_ship":0.0,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":""},{"row_index":121,"client":"The Loop West End","product":"Qty 4 - Posters","order_num":"2001530","source":"Printavo","order_date":"2026-03-10","date2":"2026-03-10","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Approved","invoiced":"Yes","flag":true,"sup_inv":"Not Paid","supplier":"Allegra","decorator":"35","our_cost":0.0,"our_setup":0.0,"decoration":0.0,"our_ship":0.0,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":""},{"row_index":122,"client":"Rockford Trap","product":"Coaches Shirts","order_num":"2001527","source":"Printavo","order_date":"","date2":"2026-03-09","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved by Michele","shipped":"Not Approved","invoiced":"Yes","flag":true,"sup_inv":"Not Paid","supplier":"Sanmar","decorator":"Krown","our_cost":213.5,"our_setup":0.0,"decoration":0.0,"our_ship":0.0,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":"getting logo digitized"},{"row_index":123,"client":"Winnebago","product":"Business Cards - 5 Sets","order_num":"1002113","source":"InkSoft","order_date":"2026-03-10","date2":"2026-03-17","ihd":"","status":"ordered","paid":"Not Paid","approved":"N/A","shipped":"Not Approved","invoiced":"No","flag":false,"sup_inv":"Not Paid","supplier":"4Over","decorator":"","our_cost":34.6,"our_setup":0.0,"decoration":0.0,"our_ship":31.09,"cust_price":214.0,"cust_setup":0.0,"cust_ship":12.0,"tracking":"","notes":""},{"row_index":124,"client":"Skyline Real Estate","product":"Pointe Floor Plans","order_num":"2001525","source":"Printavo","order_date":"2026-03-10","date2":"2026-03-06","ihd":"","status":"ordered","paid":"Net 15","approved":"Approved by Amanda","shipped":"Not Approved","invoiced":"Yes","flag":true,"sup_inv":"Not Paid","supplier":"Jen","decorator":"","our_cost":0.0,"our_setup":0.0,"decoration":0.0,"our_ship":0.0,"cust_price":954.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":"working on over the weekend"},{"row_index":125,"client":"Guardian Restoration","product":"Qty2 Business Cards","order_num":"2001531","source":"Printavo","order_date":"2026-03-11","date2":"2026-03-11","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved by Aaron","shipped":"Not Approved","invoiced":"No","flag":false,"sup_inv":"Not Paid","supplier":"4Over","decorator":"","our_cost":87.1,"our_setup":0.0,"decoration":0.0,"our_ship":19.25,"cust_price":184.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":""},{"row_index":126,"client":"Kingpinz","product":"Pizza Cutters 200-300","order_num":"2001533","source":"Printavo","order_date":"","date2":"","ihd":"","status":"pending","paid":"Not Paid","approved":"Not Approved","shipped":"Not Approved","invoiced":"No","flag":false,"sup_inv":"Not Paid","supplier":"","decorator":"","our_cost":0.0,"our_setup":0.0,"decoration":0.0,"our_ship":0.0,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":""},{"row_index":127,"client":"Fargo Roofing","product":"Qty 300 Yard Signs","order_num":"","source":"","order_date":"","date2":"","ihd":"","status":"pending","paid":"Not Paid","approved":"Not Approved","shipped":"Not Approved","invoiced":"No","flag":false,"sup_inv":"Not Paid","supplier":"","decorator":"","our_cost":0.0,"our_setup":0.0,"decoration":0.0,"our_ship":0.0,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":""},{"row_index":128,"client":"Skyline Real Estate","product":"Atlas Point - Marketing Piece","order_num":"","source":"Printavo","order_date":"","date2":"","ihd":"","status":"pending","paid":"Not Paid","approved":"Not Approved","shipped":"Not Approved","invoiced":"No","flag":false,"sup_inv":"Not Paid","supplier":"","decorator":"","our_cost":0.0,"our_setup":0.0,"decoration":0.0,"our_ship":0.0,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":"emma design"},{"row_index":129,"client":"Five West","product":"Qty 5 - Posters","order_num":"2001534","source":"Printavo","order_date":"","date2":"2026-03-12","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Approved","invoiced":"Yes","flag":true,"sup_inv":"Not Paid","supplier":"Allegra","decorator":"","our_cost":35.0,"our_setup":0.0,"decoration":0.0,"our_ship":0.0,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":""},{"row_index":130,"client":"SMOAK","product":"Qty 5 - Posters","order_num":"2001535","source":"Printavo","order_date":"","date2":"2026-03-12","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Approved","invoiced":"Yes","flag":true,"sup_inv":"Not Paid","supplier":"Allegra","decorator":"","our_cost":35.0,"our_setup":0.0,"decoration":0.0,"our_ship":0.0,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":""},{"row_index":131,"client":"Service Restoration","product":"Kyra Schmidt - Apparel","order_num":"1002114","source":"InkSoft","order_date":"","date2":"2026-03-17","ihd":"","status":"ordered","paid":"Not Paid","approved":"N/A","shipped":"Not Approved","invoiced":"Yes","flag":true,"sup_inv":"Not Paid","supplier":"Sanmar","decorator":"Krown","our_cost":120.64,"our_setup":0.0,"decoration":0.0,"our_ship":8.27,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":""},{"row_index":132,"client":"Skyline Real Estate","product":"Avery - Marketing Piece","order_num":"2001536","source":"Printavo","order_date":"","date2":"2026-03-13","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Approved","invoiced":"Yes","flag":true,"sup_inv":"Not Paid","supplier":"","decorator":"","our_cost":0.0,"our_setup":0.0,"decoration":0.0,"our_ship":0.0,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":""},{"row_index":133,"client":"Interstate Companies","product":"Spencer Mayer","order_num":"1002115","source":"InkSoft","order_date":"","date2":"2026-03-17","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved by Avery","shipped":"Not Approved","invoiced":"Yes","flag":true,"sup_inv":"Not Paid","supplier":"Sanmar","decorator":"Krown","our_cost":140.72,"our_setup":0.0,"decoration":0.0,"our_ship":9.08,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":""},{"row_index":134,"client":"Bloomington Carpet One","product":"Qty 1 - Cap","order_num":"2001537","source":"Printavo","order_date":"","date2":"2026-03-13","ihd":"","status":"ordered","paid":"Paid w/ Card","approved":"Approved","shipped":"Not Approved","invoiced":"Yes","flag":true,"sup_inv":"Paid","supplier":"Sanmar","decorator":"","our_cost":0.0,"our_setup":0.0,"decoration":0.0,"our_ship":0.0,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":""},{"row_index":135,"client":"Skyline Real Estate","product":"Apparel","order_num":"1002116","source":"InkSoft","order_date":"2026-03-16","date2":"2026-03-17","ihd":"","status":"ordered","paid":"Not Paid","approved":"N/A","shipped":"Not Approved","invoiced":"Yes","flag":true,"sup_inv":"Not Paid","supplier":"Sanmar","decorator":"Krown","our_cost":0.0,"our_setup":0.0,"decoration":0.0,"our_ship":0.0,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":""},{"row_index":136,"client":"RIO Multifamily","product":"Qty 500 - Cards Mike Tempel","order_num":"2001529","source":"Printavo","order_date":"2026-03-10","date2":"2026-03-09","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved by mike","shipped":"Not Approved","invoiced":"Yes","flag":true,"sup_inv":"Not Paid","supplier":"Printforce","decorator":"","our_cost":76.11,"our_setup":0.0,"decoration":0.0,"our_ship":8.59,"cust_price":175.0,"cust_setup":0.0,"cust_ship":10.0,"tracking":"","notes":"Foil Cards"},{"row_index":137,"client":"Boulevard Restraunt","product":"Qty 1500 - Business Cards/Coupons","order_num":"2001544","source":"Printavo","order_date":"2026-03-17","date2":"2026-03-17","ihd":"","status":"ordered","paid":"Paid","approved":"Approved","shipped":"Not Approved","invoiced":"Yes","flag":true,"sup_inv":"Paid","supplier":"4Over","decorator":"","our_cost":0.0,"our_setup":0.0,"decoration":0.0,"our_ship":0.0,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":""},{"row_index":138,"client":"Tony Weinstine","product":"Busines Cards","order_num":"2001545","source":"Printavo","order_date":"2026-03-17","date2":"2026-03-17","ihd":"","status":"pending","paid":"Not Paid","approved":"Approved","shipped":"Not Approved","invoiced":"Yes","flag":true,"sup_inv":"Not Paid","supplier":"4Over","decorator":"","our_cost":0.0,"our_setup":0.0,"decoration":0.0,"our_ship":0.0,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":""},{"row_index":139,"client":"Aries Painting","product":"Busines Cards","order_num":"2001546","source":"Printavo","order_date":"2026-03-17","date2":"","ihd":"","status":"pending","paid":"Not Paid","approved":"needs aproval","shipped":"Not Approved","invoiced":"No","flag":false,"sup_inv":"Not Paid","supplier":"","decorator":"","our_cost":0.0,"our_setup":0.0,"decoration":0.0,"our_ship":0.0,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":""},{"row_index":140,"client":"Loop Mpls","product":"Qty 100 - Happy Hour Menus","order_num":"2001540","source":"Printavo","order_date":"2026-03-17","date2":"2026-03-17","ihd":"","status":"ordered","paid":"Paid w/ card","approved":"Approved","shipped":"Not Approved","invoiced":"Yes","flag":true,"sup_inv":"Paid","supplier":"Printforce","decorator":"","our_cost":0.0,"our_setup":0.0,"decoration":0.0,"our_ship":0.0,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":""},{"row_index":141,"client":"Cadence Marketing","product":"Laynards","order_num":"2001541","source":"Printavo","order_date":"2026-03-19","date2":"","ihd":"","status":"pending","paid":"Not Paid","approved":"Needs Approval","shipped":"Not Approved","invoiced":"No","flag":false,"sup_inv":"Not Paid","supplier":"","decorator":"","our_cost":0.0,"our_setup":0.0,"decoration":0.0,"our_ship":0.0,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":""},{"row_index":142,"client":"Cadence Marketing","product":"Pins","order_num":"2001543","source":"Printavo","order_date":"2026-03-19","date2":"","ihd":"","status":"pending","paid":"Not Paid","approved":"Needs Approval","shipped":"Not Approved","invoiced":"No","flag":false,"sup_inv":"Not Paid","supplier":"","decorator":"","our_cost":0.0,"our_setup":0.0,"decoration":0.0,"our_ship":0.0,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":""},{"row_index":143,"client":"Pemberton Homes","product":"350 Sellers Guides","order_num":"2001550","source":"Printavo","order_date":"2026-03-19","date2":"2026-03-19","ihd":"","status":"pending","paid":"Paid w/ Card","approved":"Approved by Belle","shipped":"Not Approved","invoiced":"Yes","flag":true,"sup_inv":"Paid","supplier":"Printforce","decorator":"","our_cost":0.0,"our_setup":0.0,"decoration":0.0,"our_ship":0.0,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":""},{"row_index":144,"client":"Pemberton Homes","product":"Qty 500 Buyers Guides","order_num":"2001549","source":"Printavo","order_date":"2026-03-19","date2":"2026-03-19","ihd":"","status":"pending","paid":"Paid w/ Card","approved":"approved","shipped":"Not Approved","invoiced":"Yes","flag":true,"sup_inv":"Paid","supplier":"Printforce","decorator":"","our_cost":0.0,"our_setup":0.0,"decoration":0.0,"our_ship":0.0,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":""},{"row_index":145,"client":"Liz Lund Store","product":"Davd Counts - Apparel","order_num":"182673446","source":"OMG","order_date":"2026-03-19","date2":"","ihd":"","status":"ordered","paid":"Paid w/ Card","approved":"N/A","shipped":"Not Approved","invoiced":"No","flag":false,"sup_inv":"Paid","supplier":"Sanmar","decorator":"Krown","our_cost":0.0,"our_setup":0.0,"decoration":0.0,"our_ship":0.0,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":""},{"row_index":146,"client":"Oaks Properties","product":"24\" x 18\" PVC Sign","order_num":"2001551","source":"Printavo","order_date":"2026-03-20","date2":"","ihd":"","status":"pending","paid":"Not Paid","approved":"Not Approved","shipped":"Not Approved","invoiced":"No","flag":false,"sup_inv":"Not Paid","supplier":"","decorator":"","our_cost":0.0,"our_setup":0.0,"decoration":0.0,"our_ship":0.0,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":""},{"row_index":147,"client":"Rockford Trap","product":"Shirts - Qty 51","order_num":"","source":"Printavo","order_date":"","date2":"","ihd":"","status":"pending","paid":"Not Paid","approved":"March 16th","shipped":"Not Approved","invoiced":"No","flag":false,"sup_inv":"Not Paid","supplier":"","decorator":"","our_cost":0.0,"our_setup":0.0,"decoration":0.0,"our_ship":0.0,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":"meeting on Friday"},{"row_index":148,"client":"Satoree","product":"Table Top Display","order_num":"","source":"Printavo","order_date":"","date2":"","ihd":"","status":"pending","paid":"Not Paid","approved":"Not Approved","shipped":"Not Approved","invoiced":"No","flag":false,"sup_inv":"Not Paid","supplier":"","decorator":"","our_cost":0.0,"our_setup":0.0,"decoration":0.0,"our_ship":0.0,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":"need design from brittany"},{"row_index":149,"client":"Satoree","product":"Trifold Brochures","order_num":"","source":"Printavo","order_date":"","date2":"","ihd":"","status":"pending","paid":"Not Paid","approved":"Not Approved","shipped":"Not Approved","invoiced":"No","flag":false,"sup_inv":"Not Paid","supplier":"","decorator":"","our_cost":0.0,"our_setup":0.0,"decoration":0.0,"our_ship":0.0,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":"need design from brittany"},{"row_index":150,"client":"Interstate Companies","product":"Store Order - Jeremiah Johnson","order_num":"1002118","source":"InkSoft","order_date":"2026-03-19","date2":"","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved by Avery","shipped":"Not Approved","invoiced":"No","flag":false,"sup_inv":"Not Paid","supplier":"Sanmar/Vantage","decorator":"Shirthub","our_cost":0.0,"our_setup":0.0,"decoration":0.0,"our_ship":0.0,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":""},{"row_index":151,"client":"Liz Lund Store","product":"Dana Carmichael","order_num":"182690053","source":"OMG","order_date":"2026-03-19","date2":"","ihd":"","status":"ordered","paid":"Not Paid","approved":"N/A","shipped":"Not Approved","invoiced":"No","flag":false,"sup_inv":"Not Paid","supplier":"Sanmar","decorator":"Krown","our_cost":0.0,"our_setup":0.0,"decoration":0.0,"our_ship":0.0,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":""},{"row_index":152,"client":"Wayzata Legion","product":"Qty 48 - Jolt","order_num":"2001517","source":"Printavo","order_date":"","date2":"","ihd":"","status":"pending","paid":"Not Paid","approved":"Needs Approval","shipped":"Not Approved","invoiced":"No","flag":false,"sup_inv":"Not Paid","supplier":"","decorator":"","our_cost":0.0,"our_setup":0.0,"decoration":0.0,"our_ship":0.0,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":""},{"row_index":153,"client":"Skyline Real Estate","product":"99 Lofts - Leasing Flag","order_num":"","source":"","order_date":"","date2":"","ihd":"","status":"pending","paid":"Not Paid","approved":"Not Approved","shipped":"Not Approved","invoiced":"No","flag":false,"sup_inv":"Not Paid","supplier":"","decorator":"","our_cost":0.0,"our_setup":0.0,"decoration":0.0,"our_ship":0.0,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":"need design"},{"row_index":154,"client":"Oaks Properties","product":"Business Cards - Ashley Daniel","order_num":"","source":"","order_date":"","date2":"","ihd":"","status":"pending","paid":"Not Paid","approved":"Not Approved","shipped":"Not Approved","invoiced":"No","flag":false,"sup_inv":"Not Paid","supplier":"","decorator":"","our_cost":0.0,"our_setup":0.0,"decoration":0.0,"our_ship":0.0,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":""},{"row_index":155,"client":"Kleinman","product":"35 Pieces - Apparel","order_num":"","source":"","order_date":"2026-03-14","date2":"","ihd":"","status":"ordered","paid":"Paid w/ Card","approved":"Approved by Ashley","shipped":"Not Approved","invoiced":"No","flag":false,"sup_inv":"Paid","supplier":"Sanmar","decorator":"Krown","our_cost":325.76,"our_setup":0.0,"decoration":0.0,"our_ship":0.0,"cust_price":0.0,"cust_setup":0.0,"cust_ship":0.0,"tracking":"","notes":""}];
+const SEED_ORDERS = [{"id":100,"rowIndex":100,"flag":false,"client":"MCMC","product":"5 Yard Signs","orderNum":"1002107","source":"InkSoft","orderDate":"2026-03-02","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"Sinalite","decorator":"","ourCost":35.45,"ourSetup":0.0,"decoration":0.0,"ourShip":21.76,"custPrice":80.0,"custSetup":0.0,"custShip":10.0,"tracking":"","notes":""},{"id":101,"rowIndex":101,"flag":false,"client":"Skyline Real Estate","product":"Apparel - Rosa Bell","orderNum":"1002106","source":"InkSoft","orderDate":"2026-03-04","ihd":"","status":"ordered","paid":"Paid","approved":"Not Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Paid","supplier":"","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":"need substitute color"},{"id":102,"rowIndex":102,"flag":false,"client":"Service Rest","product":"Apparel - Joseph","orderNum":"1002102","source":"InkSoft","orderDate":"2026-03-04","ihd":"","status":"ordered","paid":"Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Paid","supplier":"Sanmar/SS","decorator":"Krown","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":103,"rowIndex":103,"flag":false,"client":"Hokr","product":"1/4 Zip","orderNum":"2001518","source":"Printavo","orderDate":"2026-03-03","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"SS","decorator":"Krown","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":104,"rowIndex":104,"flag":false,"client":"Grant - KW Cards","product":"Bus Cards - 500","orderNum":"2001516","source":"Printavo","orderDate":"2026-03-03","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"4Over","decorator":"","ourCost":14.46,"ourSetup":0.0,"decoration":0.0,"ourShip":11.25,"custPrice":50.0,"custSetup":0.0,"custShip":10.0,"tracking":"","notes":""},{"id":105,"rowIndex":105,"flag":false,"client":"Pub 42","product":"Qty 5 - Posters","orderNum":"2001514","source":"Printavo","orderDate":"2026-03-03","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"Allegra","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":106,"rowIndex":106,"flag":false,"client":"Vet Partners Plymouth","product":"Store Order - Alyssa Walton","orderNum":"1002105","source":"InkSoft","orderDate":"2026-03-05","ihd":"","status":"ordered","paid":"Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Paid","supplier":"Sanmar","decorator":"Kodiak","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":107,"rowIndex":107,"flag":true,"client":"PRG","product":"Amber Pointe - Brochures","orderNum":"2001502","source":"Printavo","orderDate":"2026-02-26","ihd":"","status":"ordered","paid":"Not Paid","approved":"Not Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"Printforce","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":"quote"},{"id":108,"rowIndex":108,"flag":true,"client":"Liz Lund","product":"Heated Jackets","orderNum":"2001510","source":"Printavo","orderDate":"2026-02-24","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":109,"rowIndex":109,"flag":true,"client":"Jordan Radel","product":"Jolt?","orderNum":"2001511","source":"","orderDate":"2026-03-05","ihd":"","status":"ordered","paid":"Paid w/ Card","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Paid","supplier":"ETS Express","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":110,"rowIndex":110,"flag":true,"client":"PRG","product":"Valet Keychains","orderNum":"2001522","source":"Printavo","orderDate":"2026-03-04","ihd":"","status":"sent_po","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"Promoful","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":111,"rowIndex":111,"flag":true,"client":"PRG","product":"Store order - Taylor Lemke","orderNum":"1002108","source":"InkSoft","orderDate":"2026-03-05","ihd":"","status":"ordered","paid":"Paid w/ Card","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Paid","supplier":"","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":112,"rowIndex":112,"flag":true,"client":"Winnebago","product":"Bus Cards - Tracey Mowery","orderNum":"1002109","source":"InkSoft","orderDate":"2026-03-05","ihd":"","status":"ordered","paid":"Paid w/ Card","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Paid","supplier":"4Over","decorator":"","ourCost":5.0,"ourSetup":0.0,"decoration":0.0,"ourShip":10.25,"custPrice":26.75,"custSetup":0.0,"custShip":10.0,"tracking":"","notes":""},{"id":113,"rowIndex":113,"flag":true,"client":"Satoree","product":"Business Cards - All employess (20 Sets)","orderNum":"2001524","source":"Printavo","orderDate":"2026-03-05","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"4Over","decorator":"","ourCost":813.0,"ourSetup":0.0,"decoration":0.0,"ourShip":22.37,"custPrice":1700.0,"custSetup":0.0,"custShip":85.0,"tracking":"","notes":""},{"id":114,"rowIndex":114,"flag":true,"client":"MCMC","product":"AJ Wilwerding","orderNum":"1002110","source":"InkSoft","orderDate":"2026-03-05","ihd":"","status":"ordered","paid":"Net 15","approved":"Approved","shipped":"Shipped","invoiced":"No","supInv":"Not Paid","supplier":"Sanmar","decorator":"Krown","ourCost":75.5,"ourSetup":0.0,"decoration":0.0,"ourShip":7.89,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":115,"rowIndex":115,"flag":true,"client":"Winnebago","product":"Business Cards - Danielle Garcia","orderNum":"1002111","source":"InkSoft","orderDate":"2026-03-09","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"4Over","decorator":"","ourCost":5.0,"ourSetup":0.0,"decoration":0.0,"ourShip":10.25,"custPrice":26.75,"custSetup":0.0,"custShip":10.0,"tracking":"","notes":""},{"id":116,"rowIndex":116,"flag":false,"client":"Planet Media","product":"Qty100 - Flyer","orderNum":"","source":"","orderDate":"2026-03-09","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"Printforce","decorator":"","ourCost":22.29,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":118,"rowIndex":118,"flag":false,"client":"Kingpinz","product":"Nader- 1/4 Zip","orderNum":"2001528","source":"Printavo","orderDate":"2026-03-09","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":119,"rowIndex":119,"flag":true,"client":"BMM","product":"Qty 27 - Polos","orderNum":"1002112","source":"InkSoft","orderDate":"2026-03-10","ihd":"","status":"ordered","paid":"Send QB invoice","approved":"Approved","shipped":"Shipped","invoiced":"No","supInv":"Not Paid","supplier":"Sanmar","decorator":"Krown","ourCost":469.26,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":120,"rowIndex":120,"flag":true,"client":"Skillful Carpentry","product":"Qty 10 - Yard Signs","orderNum":"2001520","source":"Printavo","orderDate":"2026-03-10","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"Sinalite","decorator":"","ourCost":64.89,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":121,"rowIndex":121,"flag":true,"client":"The Loop West End","product":"Qty 4 - Posters","orderNum":"2001530","source":"Printavo","orderDate":"2026-03-10","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"Allegra","decorator":"35","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":122,"rowIndex":122,"flag":true,"client":"Rockford Trap","product":"Coaches Shirts","orderNum":"2001527","source":"Printavo","orderDate":"2026-03-09","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"Sanmar","decorator":"Krown","ourCost":213.5,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":"getting logo digitized"},{"id":123,"rowIndex":123,"flag":false,"client":"Winnebago","product":"Business Cards - 5 Sets","orderNum":"1002113","source":"InkSoft","orderDate":"2026-03-10","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"4Over","decorator":"","ourCost":34.6,"ourSetup":0.0,"decoration":0.0,"ourShip":31.09,"custPrice":214.0,"custSetup":0.0,"custShip":12.0,"tracking":"","notes":""},{"id":124,"rowIndex":124,"flag":true,"client":"Skyline Real Estate","product":"Pointe Floor Plans","orderNum":"2001525","source":"Printavo","orderDate":"2026-03-10","ihd":"","status":"ordered","paid":"Net 15","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"Jen","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":954.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":"working on over the weekend"},{"id":125,"rowIndex":125,"flag":false,"client":"Guardian Restoration","product":"Qty2 Business Cards","orderNum":"2001531","source":"Printavo","orderDate":"2026-03-11","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"4Over","decorator":"","ourCost":87.1,"ourSetup":0.0,"decoration":0.0,"ourShip":19.25,"custPrice":184.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":126,"rowIndex":126,"flag":false,"client":"Kingpinz","product":"Pizza Cutters 200-300","orderNum":"2001533","source":"Printavo","orderDate":"","ihd":"","status":"ordered","paid":"Not Paid","approved":"Not Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":127,"rowIndex":127,"flag":false,"client":"Fargo Roofing","product":"Qty 300 Yard Signs","orderNum":"","source":"","orderDate":"","ihd":"","status":"ordered","paid":"Not Paid","approved":"Not Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":128,"rowIndex":128,"flag":false,"client":"Skyline Real Estate","product":"Atlas Point - Marketing Piece","orderNum":"","source":"Printavo","orderDate":"","ihd":"","status":"ordered","paid":"Not Paid","approved":"Not Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":"emma design"},{"id":129,"rowIndex":129,"flag":true,"client":"Five West","product":"Qty 5 - Posters","orderNum":"2001534","source":"Printavo","orderDate":"2026-03-12","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"Allegra","decorator":"","ourCost":35.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":130,"rowIndex":130,"flag":true,"client":"SMOAK","product":"Qty 5 - Posters","orderNum":"2001535","source":"Printavo","orderDate":"2026-03-12","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"Allegra","decorator":"","ourCost":35.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":131,"rowIndex":131,"flag":true,"client":"Service Restoration","product":"Kyra Schmidt - Apparel","orderNum":"1002114","source":"InkSoft","orderDate":"2026-03-17","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"Sanmar","decorator":"Krown","ourCost":120.64,"ourSetup":0.0,"decoration":0.0,"ourShip":8.27,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":132,"rowIndex":132,"flag":true,"client":"Skyline Real Estate","product":"Avery - Marketing Piece","orderNum":"2001536","source":"Printavo","orderDate":"2026-03-13","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":133,"rowIndex":133,"flag":true,"client":"Interstate Companies","product":"Spencer Mayer","orderNum":"1002115","source":"InkSoft","orderDate":"2026-03-17","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"Sanmar","decorator":"Krown","ourCost":140.72,"ourSetup":0.0,"decoration":0.0,"ourShip":9.08,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":134,"rowIndex":134,"flag":true,"client":"Bloomington Carpet One","product":"Qty 1 - Cap","orderNum":"2001537","source":"Printavo","orderDate":"2026-03-13","ihd":"","status":"ordered","paid":"Paid w/ Card","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Paid","supplier":"Sanmar","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":135,"rowIndex":135,"flag":true,"client":"Skyline Real Estate","product":"Apparel","orderNum":"1002116","source":"InkSoft","orderDate":"2026-03-16","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"Sanmar","decorator":"Krown","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":136,"rowIndex":136,"flag":true,"client":"RIO Multifamily","product":"Qty 500 - Cards Mike Tempel","orderNum":"2001529","source":"Printavo","orderDate":"2026-03-10","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"Printforce","decorator":"","ourCost":76.11,"ourSetup":0.0,"decoration":0.0,"ourShip":8.59,"custPrice":175.0,"custSetup":0.0,"custShip":10.0,"tracking":"","notes":"Foil Cards"},{"id":137,"rowIndex":137,"flag":true,"client":"Boulevard Restraunt","product":"Qty 1500 - Business Cards/Coupons","orderNum":"2001544","source":"Printavo","orderDate":"2026-03-17","ihd":"","status":"ordered","paid":"Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Paid","supplier":"4Over","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":138,"rowIndex":138,"flag":true,"client":"Tony Weinstine","product":"Busines Cards","orderNum":"2001545","source":"Printavo","orderDate":"2026-03-17","ihd":"","status":"ordered","paid":"Not Paid","approved":"Not Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"4Over","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":139,"rowIndex":139,"flag":false,"client":"Aries Painting","product":"Busines Cards","orderNum":"2001546","source":"Printavo","orderDate":"2026-03-17","ihd":"","status":"ordered","paid":"Not Paid","approved":"Not Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":140,"rowIndex":140,"flag":true,"client":"Loop Mpls","product":"Qty 100 - Happy Hour Menus","orderNum":"2001540","source":"Printavo","orderDate":"2026-03-17","ihd":"","status":"ordered","paid":"Paid w/ card","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Paid","supplier":"Printforce","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":141,"rowIndex":141,"flag":false,"client":"Cadence Marketing","product":"Laynards","orderNum":"2001541","source":"Printavo","orderDate":"2026-03-19","ihd":"","status":"ordered","paid":"Not Paid","approved":"Not Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":142,"rowIndex":142,"flag":false,"client":"Cadence Marketing","product":"Pins","orderNum":"2001543","source":"Printavo","orderDate":"2026-03-19","ihd":"","status":"ordered","paid":"Not Paid","approved":"Not Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":143,"rowIndex":143,"flag":true,"client":"Pemberton Homes","product":"350 Sellers Guides","orderNum":"2001550","source":"Printavo","orderDate":"2026-03-19","ihd":"","status":"ordered","paid":"Paid w/ Card","approved":"Not Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Paid","supplier":"Printforce","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":144,"rowIndex":144,"flag":true,"client":"Pemberton Homes","product":"Qty 500 Buyers Guides","orderNum":"2001549","source":"Printavo","orderDate":"2026-03-19","ihd":"","status":"ordered","paid":"Paid w/ Card","approved":"Not Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Paid","supplier":"Printforce","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":145,"rowIndex":145,"flag":false,"client":"Liz Lund Store","product":"Davd Counts - Apparel","orderNum":"182673446","source":"OMG","orderDate":"2026-03-19","ihd":"","status":"ordered","paid":"Paid w/ Card","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Paid","supplier":"Sanmar","decorator":"Krown","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":146,"rowIndex":146,"flag":false,"client":"Oaks Properties","product":"24\" x 18\" PVC Sign","orderNum":"2001551","source":"Printavo","orderDate":"2026-03-20","ihd":"","status":"ordered","paid":"Not Paid","approved":"Not Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":147,"rowIndex":147,"flag":false,"client":"Rockford Trap","product":"Shirts - Qty 51","orderNum":"","source":"Printavo","orderDate":"","ihd":"","status":"ordered","paid":"Not Paid","approved":"Not Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":"meeting on Friday"},{"id":148,"rowIndex":148,"flag":false,"client":"Satoree","product":"Table Top Display","orderNum":"","source":"Printavo","orderDate":"","ihd":"","status":"ordered","paid":"Not Paid","approved":"Not Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":"need design from brittany"},{"id":149,"rowIndex":149,"flag":false,"client":"Satoree","product":"Trifold Brochures","orderNum":"","source":"Printavo","orderDate":"","ihd":"","status":"ordered","paid":"Not Paid","approved":"Not Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":"need design from brittany"},{"id":150,"rowIndex":150,"flag":false,"client":"Interstate Companies","product":"Store Order - Jeremiah Johnson","orderNum":"1002118","source":"InkSoft","orderDate":"2026-03-19","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"Sanmar/Vantage","decorator":"Shirthub","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":151,"rowIndex":151,"flag":false,"client":"Liz Lund Store","product":"Dana Carmichael","orderNum":"182690053","source":"OMG","orderDate":"2026-03-19","ihd":"","status":"ordered","paid":"Not Paid","approved":"Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"Sanmar","decorator":"Krown","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":152,"rowIndex":152,"flag":false,"client":"Wayzata Legion","product":"Qty 48 - Jolt","orderNum":"2001517","source":"Printavo","orderDate":"","ihd":"","status":"ordered","paid":"Not Paid","approved":"Not Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":153,"rowIndex":153,"flag":false,"client":"Skyline Real Estate","product":"99 Lofts - Leasing Flag","orderNum":"","source":"","orderDate":"","ihd":"","status":"ordered","paid":"Not Paid","approved":"Not Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":"need design"},{"id":154,"rowIndex":154,"flag":false,"client":"Oaks Properties","product":"Business Cards - Ashley Daniel","orderNum":"","source":"","orderDate":"","ihd":"","status":"ordered","paid":"Not Paid","approved":"Not Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Not Paid","supplier":"","decorator":"","ourCost":0.0,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""},{"id":155,"rowIndex":155,"flag":false,"client":"Kleinman","product":"35 Pieces - Apparel","orderNum":"","source":"","orderDate":"2026-03-14","ihd":"","status":"ordered","paid":"Paid w/ Card","approved":"Not Approved","shipped":"Not Shipped","invoiced":"No","supInv":"Paid","supplier":"Sanmar","decorator":"Krown","ourCost":325.76,"ourSetup":0.0,"decoration":0.0,"ourShip":0.0,"custPrice":0.0,"custSetup":0.0,"custShip":0.0,"tracking":"","notes":""}];
 
 // ── STATE ──────────────────────────────────────────────────
 const SK='pm_v5';
-
-// ── SUPABASE ─────────────────────────────────────────────────
-const SUPA_URL = 'https://abwaznbejkckxmstwkqg.supabase.co';
-const SUPA_KEY = 'sb_publishable_Mdna_FRTzamet_bre46ICQ_ulFspyrV';
-const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
-
-// ── SUPABASE DATA OPERATIONS ─────────────────────────────────
-async function fetchOrders(){
-  const { data, error } = await supa
-    .from('orders')
-    .select('*')
-    .order('row_index', { ascending: true });
-  if(error) throw new Error(error.message);
-  return data.map(r=>mapFromDB(r));
-}
-
-async function insertOrder(o){
-  const { data, error } = await supa.from('orders').insert([mapToDB(o)]).select().single();
-  if(error) throw new Error(error.message);
-  return mapFromDB(data);
-}
-
-async function updateOrder(o){
-  const { data, error } = await supa.from('orders').update(mapToDB(o)).eq('id', o.id).select().single();
-  if(error) throw new Error(error.message);
-  return mapFromDB(data);
-}
-
-async function deleteOrderDB(id){
-  const { error } = await supa.from('orders').delete().eq('id', id);
-  if(error) throw new Error(error.message);
-}
-
-// Map DB snake_case → dashboard camelCase
-function mapFromDB(r){
-  return {
-    id: r.id, rowIndex: r.row_index, client: r.client, product: r.product,
-    orderNum: r.order_num, source: r.source, orderDate: r.order_date,
-    date2: r.date2, ihd: r.ihd, status: r.status, paid: r.paid,
-    approved: r.approved, shipped: r.shipped, invoiced: r.invoiced,
-    flag: r.flag, supInv: r.sup_inv, supplier: r.supplier,
-    decorator: r.decorator, ourCost: Number(r.our_cost)||0,
-    ourSetup: Number(r.our_setup)||0, decoration: Number(r.decoration)||0,
-    ourShip: Number(r.our_ship)||0, custPrice: Number(r.cust_price)||0,
-    custSetup: Number(r.cust_setup)||0, custShip: Number(r.cust_ship)||0,
-    tracking: r.tracking, notes: r.notes,
-  };
-}
-
-// Map dashboard camelCase → DB snake_case
-function mapToDB(o){
-  return {
-    row_index: o.rowIndex||null, client: o.client, product: o.product,
-    order_num: o.orderNum||'', source: o.source||'',
-    order_date: o.orderDate||'', date2: o.date2||'', ihd: o.ihd||'',
-    status: o.status||'pending', paid: o.paid||'Not Paid',
-    approved: o.approved||'Not Approved', shipped: o.shipped||'Not Approved',
-    invoiced: o.invoiced||'No', flag: o.flag||false,
-    sup_inv: o.supInv||'Not Paid', supplier: o.supplier||'',
-    decorator: o.decorator||'', our_cost: Number(o.ourCost)||0,
-    our_setup: Number(o.ourSetup)||0, decoration: Number(o.decoration)||0,
-    our_ship: Number(o.ourShip)||0, cust_price: Number(o.custPrice)||0,
-    cust_setup: Number(o.custSetup)||0, cust_ship: Number(o.custShip)||0,
-    tracking: o.tracking||'', notes: o.notes||'',
-  };
-}
-
-// ── SHEET WRITE-BACK ─────────────────────────────────────────
-// When dashboard makes changes, also push to Google Sheet
-let SHEET_SCRIPT_URL = localStorage.getItem('pm_sheet_url') || 'PASTE_YOUR_APPS_SCRIPT_URL_HERE';
-
-async function pushToSheet(action, payload) {
-  if (!SHEET_SCRIPT_URL) return; // no sheet URL configured — skip
-  try {
-    await fetch(SHEET_SCRIPT_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action, ...payload })
-    });
-  } catch(e) {
-    console.warn('Sheet write-back failed:', e.message);
-  }
-}
-
-// ── REALTIME POLLING (every 30 seconds) ─────────────────────
-// Using polling instead of websocket to avoid browser compatibility issues
-function subscribeRealtime(){
-  setInterval(()=>{ syncFromSupabase(true); }, 30000);
-}
+const NOW=new Date();
+const CUR_MONTH=NOW.getFullYear()+'-'+String(NOW.getMonth()+1).padStart(2,'0');
+let curMonth=CUR_MONTH;
+let curPeriod='month';
 let orders=[];
 let editId=null,curFilter='all',sortC='status',sortD=1,curPage=1,expId=null;
 const PG=25;
-let scriptURL='';
+let scriptURL='https://script.google.com/macros/s/AKfycbx_RQnGucw-wzkRCyz4RB2jjxYDZ1fLjctrS_ZRp12oM_Vn5FxI0Fj1-oFjJhQw1psU/exec';
 let syncStatus='disconnected'; // disconnected | connected | syncing | error
 
+function save(){try{localStorage.setItem(SK,JSON.stringify(orders));}catch(e){}}
+function load(){try{const d=localStorage.getItem(SK);if(d)orders=JSON.parse(d);}catch(e){orders=[];}}
 function loadUrl(){
-  scriptURL=localStorage.getItem('pm_script_url')||'';
-  if(scriptURL){document.getElementById('scriptUrl').value=scriptURL;setSyncStatus('connected');}
+  // scriptURL is hardcoded — only override if localStorage has a non-empty value
+  const saved=localStorage.getItem('pm_script_url');
+  if(saved&&saved.trim()) scriptURL=saved.trim();
+  // Always connected since URL is hardcoded
+  document.getElementById('scriptUrl').value=scriptURL;
+  setSyncStatus('connected');
 }
 
 // ── SYNC ENGINE ──────────────────────────────────────────────
@@ -562,7 +494,8 @@ async function gasWrite(url, payload){
   }
 }
 
-if(!orders.length){orders=SEED_ORDERS.map((o,i)=>({...o,id:o.id||i+100}));}
+load();
+if(!orders.length){orders=SEED_ORDERS.map((o,i)=>({...o,id:o.id||i+100}));save();}
 
 // ── HELPERS ───────────────────────────────────────────────
 function gId(){return Date.now()+Math.floor(Math.random()*9999);}
@@ -589,74 +522,118 @@ function isSh(o){
 
 // ── SYNC STATUS ──────────────────────────────────────────
 function setSyncStatus(s){
+  syncStatus=s;
   const b=document.getElementById('syncBadge');
   const l=document.getElementById('syncLabel');
-  if(!b||!l) return;
   b.className='sync-badge '+s;
-  const labels={disconnected:'Offline',connected:'Live',syncing:'Syncing...',error:'Error'};
+  const labels={disconnected:'Not Connected',connected:'Connected',syncing:'Syncing...',error:'Sync Error'};
   l.textContent=labels[s]||s;
 }
 
 function toggleSyncPanel(){
   const p=document.getElementById('syncPanel');
-  if(p) p.classList.toggle('open');
+  p.classList.toggle('open');
 }
-function saveScriptUrl(){ /* no-op */ }
-function logSync(msg,cls){ console.log('[Sync]', msg); }
-function saveSheetUrl(){
-  const u=document.getElementById('sheetUrl').value.trim();
-  if(!u){toast('Paste your Apps Script URL first','err');return;}
-  SHEET_SCRIPT_URL=u;
-  localStorage.setItem('pm_sheet_url',u);
-  toast('✓ Sheet URL saved — sync active','syn');
-  // Hide the sync panel once configured
-  document.getElementById('syncPanel').classList.remove('open');
-}
-function testConnection(){ syncFromSupabase(); }
-function testWrite(){ /* no-op */ }
 
-async function syncFromSupabase(silent=false){
+function saveScriptUrl(){
+  const u=document.getElementById('scriptUrl').value.trim();
+  if(!u){toast('Paste your Apps Script URL first','err');return;}
+  scriptURL=u;
+  localStorage.setItem('pm_script_url',u);
+  setSyncStatus('connected');
+  logSync('✓ URL saved. Testing connection...','ok');
+  testConnection();
+}
+
+function logSync(msg,cls='info'){
+  const el=document.getElementById('syncLog');
+  el.innerHTML+=`<div class="${cls}">${new Date().toLocaleTimeString()} — ${msg}</div>`;
+  el.scrollTop=el.scrollHeight;
+}
+
+// ── TEST CONNECTION ───────────────────────────────────────
+async function testConnection(){
+  const url=scriptURL||document.getElementById('scriptUrl').value.trim();
+  if(!url){logSync('⚠ Paste your Web App URL first','err');return;}
   setSyncStatus('syncing');
+  logSync('Contacting Apps Script...','info');
   try{
-    const data = await fetchOrders();
-    if(data && data.length > 0){
-      orders = data;
-    } else if(!silent){
-      // Seed database with spreadsheet data on first load
-      await seedDatabase();
+    const d=await gasRequest(url, {action:'ping'});
+    if(d.ok||d.total!==undefined){
+      setSyncStatus('connected');
+      logSync('✓ Connected! Sheet: '+d.sheet+' · '+d.time,'ok');
+      toast('✓ Google Sheets connected','syn');
+    } else if(d.error){
+      setSyncStatus('error');
+      logSync('✗ Script error: '+d.error,'err');
     }
-    setSyncStatus('connected');
-    if(!silent) toast('✓ Synced with database','syn');
-    renderTable();
-    renderDash();
   }catch(e){
     setSyncStatus('error');
-    console.error('Sync error:', e);
-    if(!silent) toast('Sync error: '+e.message,'err');
+    logSync('✗ '+e.message,'err');
   }
 }
 
-async function seedDatabase(){
-  toast('Setting up database...','syn');
+// ── PULL FROM SHEET ───────────────────────────────────────
+async function pullFromSheet(){
+  if(!scriptURL){toast('Connect to Google Sheets first — click the sync badge','err');document.getElementById('syncPanel').classList.add('open');return;}
+  setSyncStatus('syncing');
+  logSync('Pulling orders from Google Sheet...','info');
   try{
-    // Insert all seed orders into Supabase
-    const chunks = [];
-    for(let i=0; i<SEED_ORDERS.length; i+=10) chunks.push(SEED_ORDERS.slice(i,i+10));
-    for(const chunk of chunks){
-      const mapped = chunk.map(o=>mapToDB({...o, id: undefined}));
-      await supa.from('orders').insert(mapped);
-    }
-    const data = await fetchOrders();
-    orders = data;
-    toast('✓ Database ready — '+data.length+' orders loaded','syn');
+    const d=await gasRequest(scriptURL, {action:'getOrders'});
+    if(d.error)throw new Error(d.error);
+    if(!d.orders)throw new Error('No orders data returned. Try running testConnection() in the Apps Script editor first.');
+    orders=d.orders.map(o=>({
+      ...o,
+      id:   o.rowIndex||gId(),
+      flag: o.flag||false,
+      // Ensure orderDate is populated — Apps Script sends best date already
+      orderDate: o.orderDate||o.date2||''
+    }));
+    save();
+    // Reset filter to 'all' so everything shows after a sync
+    curFilter='all';
+    curPage=1;
+    curPeriod='month'; // reset to current month on sync
+    document.querySelectorAll('.fb').forEach(b=>{
+      b.classList.remove('active');
+      if(b.textContent.trim()==='All') b.classList.add('active');
+    });
+    document.querySelectorAll('#periodBar .mc').forEach(c=>c.classList.remove('active'));
+    const thisMonthBtn=document.querySelector('#periodBar .mc');
+    if(thisMonthBtn)thisMonthBtn.classList.add('active');
+    setSyncStatus('connected');
+    logSync('✓ Pulled '+d.orders.length+' orders from sheet (fetched at '+d.fetchedAt+')','ok');
+    toast('↓ Pulled '+d.orders.length+' orders from Google Sheets','syn');
+    renderTable();renderDash();
   }catch(e){
-    console.error('Seed error:', e);
-    // Fall back to seed data locally
-    orders = SEED_ORDERS;
+    setSyncStatus('error');
+    logSync('✗ Pull failed: '+e.message,'err');
+    toast('Sync pull failed — see sync panel for details','err');
   }
 }
 
-async function pullFromSheet(silent=false){ await syncFromSupabase(silent); }
+// ── PUSH TO SHEET ─────────────────────────────────────────
+async function pushToSheet(action, payload){
+  if(!scriptURL){
+    logSync('⚠ No script URL — changes saved locally only','info');
+    return null;
+  }
+  setSyncStatus('syncing');
+  logSync('Pushing '+action+' to sheet...','info');
+  try{
+    const d = await gasWrite(scriptURL, {action, ...payload});
+    if(!d) throw new Error('No response from script');
+    if(d.error) throw new Error(d.error);
+    setSyncStatus('connected');
+    logSync('✓ '+action+' → '+( d.message||('row '+(d.rowIndex||'?'))),'ok');
+    return d;
+  }catch(e){
+    logSync('✗ '+action+' failed: '+e.message,'err');
+    setSyncStatus('error');
+    toast('Write to sheet failed — see sync log','err');
+    return null;
+  }
+}
 
 // ── PAGE NAV ─────────────────────────────────────────────
 function showPage(n,el){
@@ -728,7 +705,7 @@ function renderDash(){
   const tot=orders.length;
   const pending=orders.filter(o=>deriveStatus(o)==='pending').length;
   const working=orders.filter(o=>deriveStatus(o)==='working').length;
-  const ord=orders.filter(o=>deriveStatus(o)!=='complete').length;
+  const ord=orders.filter(o=>{ const d=deriveStatus(o); return d==='ordered'||d==='working'||d==='pending'; }).length;
   const com=orders.filter(o=>deriveStatus(o)==='complete').length;
   // Only count revenue & cost for approved orders
   const approvedOrders=orders.filter(o=>isApp(o));
@@ -775,9 +752,13 @@ function renderDash(){
     const pP=tot?Math.round(pending/tot*100):0;
     const pW=tot?Math.round(working/tot*100):0;
     const pC=tot?Math.round(com/tot*100):0;
-    return `<div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span style="color:var(--hld);">Pending</span><span>${pending} (${pP}%)</span></div><div style="background:var(--cr2);border-radius:4px;height:7px;"><div style="background:var(--hld);height:100%;width:${pP}%;border-radius:4px;"></div></div></div>
-    <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span style="color:var(--ord);">Working</span><span>${working} (${pW}%)</span></div><div style="background:var(--cr2);border-radius:4px;height:7px;"><div style="background:var(--ord);height:100%;width:${pW}%;border-radius:4px;"></div></div></div>
-    <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span style="color:var(--cmp);">Complete</span><span>${com} (${pC}%)</span></div><div style="background:var(--cr2);border-radius:4px;height:7px;"><div style="background:var(--cmp);height:100%;width:${pC}%;border-radius:4px;"></div></div></div>`;
+    return `
+    <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span style="color:var(--hld);">Pending</span><span>${pending} (${pP}%)</span></div>
+    <div style="background:var(--cr2);border-radius:4px;height:7px;"><div style="background:var(--hld);height:100%;width:${pP}%;border-radius:4px;"></div></div></div>
+    <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span style="color:var(--ord);">Working</span><span>${working} (${pW}%)</span></div>
+    <div style="background:var(--cr2);border-radius:4px;height:7px;"><div style="background:var(--ord);height:100%;width:${pW}%;border-radius:4px;"></div></div></div>
+    <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span style="color:var(--cmp);">Complete</span><span>${com} (${pC}%)</span></div>
+    <div style="background:var(--cr2);border-radius:4px;height:7px;"><div style="background:var(--cmp);height:100%;width:${pC}%;border-radius:4px;"></div></div></div>`;
   })();
 }
 
@@ -828,8 +809,23 @@ function setFilter(f,btn){curFilter=f;curPage=1;document.querySelectorAll('.fb')
 
 function renderTable(){
   const q=(document.getElementById('srch')?.value||'').toLowerCase();
+  // Build month filter bar
+  const allMonths=[...new Set(orders.map(o=>(o.orderDate||'').slice(0,7)).filter(Boolean))].sort().reverse();
+  const mBarEl=document.getElementById('mBar');
+  if(mBarEl){
+    mBarEl.innerHTML=
+      `<div class="mc ${curMonth==='all'?'active':''}" onclick="setMon('all',this)">All</div>`+
+      allMonths.map(m=>{
+        const [y,mo]=m.split('-');
+        const lbl=new Date(y,mo-1,1).toLocaleString('en-US',{month:'long',year:'numeric'});
+        return `<div class="mc ${curMonth===m?'active':''}" onclick="setMon('${m}',this)">${lbl}</div>`;
+      }).join('');
+  }
+
   let fil=orders.filter(o=>{
-    if(curFilter!=='all'&&o.status!==curFilter)return false;
+    const ds=deriveStatus(o);
+    if(curFilter!=='all'&&ds!==curFilter)return false;
+    
     if(q&&!`${o.client} ${o.product} ${o.orderNum} ${o.supplier} ${o.decorator}`.toLowerCase().includes(q))return false;
     return true;
   });
@@ -915,36 +911,22 @@ function toggleExp(id){expId=(expId===id?null:id);renderTable();}
 // ── ORDER ACTIONS (with sheet sync) ──────────────────────
 async function markDone(id){
   const o=orders.find(x=>x.id===id);if(!o)return;
+  o.status='complete';
+  save();renderTable();renderDash();
+  toast('✅ Marked Complete','ok');
   setSyncStatus('syncing');
-  try{
-    const updated=await updateOrder({...o,status:'complete'});
-    const idx=orders.findIndex(x=>x.id===id);
-    orders[idx]=updated;
-    setSyncStatus('connected');
-    pushToSheet('markComplete', {rowIndex: o.rowIndex});
-    toast('✅ Marked Complete','ok');
-    renderTable();renderDash();
-  }catch(e){
-    setSyncStatus('error');
-    toast('Error: '+e.message,'err');
-  }
+  const res=await pushToSheet('markComplete',{orderNum:o.orderNum,rowIndex:o.rowIndex});
+  if(res)setSyncStatus('connected');
 }
 
 async function delO(id){
   if(!confirm('Delete this order?'))return;
-  setSyncStatus('syncing');
-  try{
-    await deleteOrderDB(id);
-    orders=orders.filter(x=>x.id!==id);
-    if(expId===id)expId=null;
-    setSyncStatus('connected');
-    pushToSheet('deleteRow', {rowIndex: orders.find(x=>x.id===id)?.rowIndex});
-    toast('Order deleted','err');
-    renderTable();renderDash();
-  }catch(e){
-    setSyncStatus('error');
-    toast('Error: '+e.message,'err');
-  }
+  const o=orders.find(x=>x.id===id);
+  orders=orders.filter(x=>x.id!==id);
+  if(expId===id)expId=null;
+  save();renderTable();renderDash();
+  toast('Order deleted','err');
+  if(o){setSyncStatus('syncing');const res=await pushToSheet('deleteOrder',{orderNum:o.orderNum,rowIndex:o.rowIndex});if(res)setSyncStatus('connected');}
 }
 
 // ── MODAL ────────────────────────────────────────────────
@@ -977,62 +959,112 @@ function editO(id){openModal(id);}
 function closeMo(){document.getElementById('mOv').classList.remove('open');editId=null;}
 
 async function saveOrder(){
-  const cl=document.getElementById('fCl').value.trim();
-  const pr=document.getElementById('fPr').value.trim();
+  const cl=document.getElementById('fCl').value.trim(),pr=document.getElementById('fPr').value.trim();
   if(!cl||!pr){alert('Client and Product are required.');return;}
   const d={
-    client:cl, product:pr,
-    orderNum:document.getElementById('fON').value.trim(),
-    source:document.getElementById('fSo').value,
-    orderDate:document.getElementById('fOD').value,
-    ihd:document.getElementById('fIH').value,
-    status:document.getElementById('fSt').value,
-    paid:document.getElementById('fPd').value,
-    approved:document.getElementById('fAp').value,
-    shipped:document.getElementById('fSh').checked?'Approved':'Not Approved',
-    invoiced:document.getElementById('fIn').value,
-    supInv:document.getElementById('fSI').value,
-    supplier:document.getElementById('fSup').value.trim(),
-    decorator:document.getElementById('fDec').value.trim(),
-    tracking:document.getElementById('fTr').value.trim(),
+    client:cl,product:pr,orderNum:document.getElementById('fON').value.trim(),
+    source:document.getElementById('fSo').value,orderDate:document.getElementById('fOD').value,
+    ihd:document.getElementById('fIH').value,status:document.getElementById('fSt').value,
+    paid:document.getElementById('fPd').value,approved:document.getElementById('fAp').value,
+    shipped:document.getElementById('fSh').checked?'Approved':'Not Approved',invoiced:document.getElementById('fIn').value,
+    supInv:document.getElementById('fSI').value,supplier:document.getElementById('fSup').value.trim(),
+    decorator:document.getElementById('fDec').value.trim(),tracking:document.getElementById('fTr').value.trim(),
     notes:document.getElementById('fNo').value.trim(),
-    ourCost:parseFloat(document.getElementById('fOC').value)||0,
-    ourSetup:parseFloat(document.getElementById('fOS').value)||0,
-    decoration:parseFloat(document.getElementById('fOD2').value)||0,
-    ourShip:parseFloat(document.getElementById('fOSh').value)||0,
-    custPrice:parseFloat(document.getElementById('fCP').value)||0,
-    custSetup:parseFloat(document.getElementById('fCS').value)||0,
+    ourCost:parseFloat(document.getElementById('fOC').value)||0,ourSetup:parseFloat(document.getElementById('fOS').value)||0,
+    decoration:parseFloat(document.getElementById('fOD2').value)||0,ourShip:parseFloat(document.getElementById('fOSh').value)||0,
+    custPrice:parseFloat(document.getElementById('fCP').value)||0,custSetup:parseFloat(document.getElementById('fCS').value)||0,
     custShip:parseFloat(document.getElementById('fCSh').value)||0,
   };
+  let sheetAction,sheetPayload;
+  if(editId){
+    const idx=orders.findIndex(o=>o.id===editId);
+    orders[idx]={...orders[idx],...d};
+    sheetAction='updateOrder';sheetPayload={order:{...orders[idx]}};
+    toast('✅ Order updated','ok');
+  }else{
+    const newO={id:gId(),...d,rowIndex:null};
+    orders.push(newO);
+    sheetAction='addOrder';sheetPayload={order:newO};
+    toast('✅ Order added','ok');
+  }
+  save();closeMo();renderTable();renderDash();
+  // Sync to sheet
   setSyncStatus('syncing');
-  try{
-    if(editId){
-      const existing=orders.find(o=>o.id===editId);
-      const updated=await updateOrder({...existing,...d,id:editId});
-      const idx=orders.findIndex(o=>o.id===editId);
-      orders[idx]=updated;
-      toast('✅ Order updated','ok');
-    }else{
-      const created=await insertOrder(d);
-      orders.push(created);
-      toast('✅ Order added','ok');
-    }
+  const res=await pushToSheet(sheetAction,sheetPayload);
+  if(res){
+    // Update rowIndex from sheet response
+    if(!editId&&res.rowIndex){orders[orders.length-1].rowIndex=res.rowIndex;save();}
     setSyncStatus('connected');
-    // Also write back to Google Sheet
-    if(editId){
-      pushToSheet('updateRow', {order: mapToDB(orders.find(o=>o.id===editId))});
-    } else {
-      pushToSheet('addRow', {order: mapToDB(orders[orders.length-1])});
-    }
-    closeMo();
-    renderTable();
-    renderDash();
-  }catch(e){
-    setSyncStatus('error');
-    toast('Error: '+e.message,'err');
   }
 }
 
+// ── TEST WRITE ───────────────────────────────────────────
+async function testWrite(){
+  if(!scriptURL){logSync('⚠ No URL set','err');return;}
+  logSync('Testing write — adding a test ping row...','info');
+  const testOrder = {
+    client:'TEST - DELETE ME',
+    product:'Dashboard write test',
+    orderNum:'TEST001',
+    source:'Internal',
+    orderDate:'2026-03-21',
+    status:'pending',
+    paid:'Not Paid',
+    approved:'Not Approved',
+    shipped:'Not Shipped',
+    invoiced:'No',
+    supInv:'Not Paid',
+    supplier:'',decorator:'',tracking:'',notes:'Auto test from dashboard',
+    ourCost:0,ourSetup:0,decoration:0,ourShip:0,
+    custPrice:0,custSetup:0,custShip:0,
+    flag:false,rowIndex:null
+  };
+  const res = await pushToSheet('addOrder', {order: testOrder});
+  if(res){
+    logSync('✓ Test write succeeded! Check your sheet for "TEST - DELETE ME" row, then delete it.','ok');
+    toast('✓ Test write worked! Check your sheet.','syn');
+  }
+}
+
+function setMon(m,el){
+  curMonth=m;curPage=1;curPeriod='custom';
+  document.querySelectorAll('#periodBar .mc').forEach(c=>c.classList.remove('active'));
+  document.querySelectorAll('#mBar .mc').forEach(c=>c.classList.remove('active'));
+  if(el)el.classList.add('active');
+  renderTable();
+}
+function setPeriod(p,el){
+  curPeriod=p;curPage=1;
+  document.querySelectorAll('#periodBar .mc').forEach(c=>c.classList.remove('active'));
+  if(el)el.classList.add('active');
+  // Clear month bar selection when using period filter
+  document.querySelectorAll('#mBar .mc').forEach(c=>c.classList.remove('active'));
+  renderTable();
+}
+function orderInPeriod(o){
+  // Filter based on Column F (orderDate) only
+  const d=o.orderDate||'';
+  if(!d) return curPeriod==='all'; // no date = only show in All Time
+  const od=new Date(d);
+  if(isNaN(od)) return curPeriod==='all';
+  const now=new Date();
+  if(curPeriod==='today'){
+    return od.toDateString()===now.toDateString();
+  }
+  if(curPeriod==='week'){
+    const startOfWeek=new Date(now);
+    startOfWeek.setDate(now.getDate()-now.getDay());
+    startOfWeek.setHours(0,0,0,0);
+    return od>=startOfWeek;
+  }
+  if(curPeriod==='month'){
+    return d.slice(0,7)===CUR_MONTH;
+  }
+  if(curPeriod==='custom'){
+    return d.slice(0,7)===curMonth;
+  }
+  return true; // 'all'
+}
 // ── EXPORT ───────────────────────────────────────────────
 function exportCSV(){
   const H=['Client','Product','Order #','Source','Date','Status','Paid','Approved','Shipped','Invoiced','Supplier','Decorator','Our Cost','Our Setup','Decoration','Our Ship','Our Total','Cust Price','Cust Setup','Cust Ship','Cust Total','Profit','Tracking','Notes'];
@@ -1057,47 +1089,28 @@ document.addEventListener('click',function(e){
   if(panel.classList.contains('open')&&!panel.contains(e.target)&&!badge.contains(e.target))panel.classList.remove('open');
 });
 document.getElementById('hDate').textContent=new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
-// ── INIT ──────────────────────────────────────────────
-// Load seed data instantly, then sync from Supabase
-// Load saved sheet URL
-const savedSheetUrl = localStorage.getItem('pm_sheet_url');
-if(savedSheetUrl) {
-  SHEET_SCRIPT_URL = savedSheetUrl;
-  const el = document.getElementById('sheetUrl');
-  if(el) el.value = savedSheetUrl;
-}
-orders = SEED_ORDERS.map((o,i)=>({...o, id: o.id||(i+100)}));
-setSyncStatus('syncing');
+loadUrl();
 renderDash();
 
-// Connect to Supabase and load live data
-setTimeout(async()=>{
-  try{
-    const data = await fetchOrders();
-    if(data && data.length > 0){
-      orders = data;
-      // Debug: log unique status values from DB
-      const statuses = [...new Set(data.map(o=>o.status))];
-      console.log('Status values from DB:', statuses);
-      console.log('Sample order:', data[0]);
-      renderTable();
-      renderDash();
-    } else {
-      // First time — seed the database
-      await seedDatabase();
-      renderTable();
-      renderDash();
-    }
-    setSyncStatus('connected');
-    // Subscribe to realtime changes so all computers stay in sync
-    subscribeRealtime();
-  }catch(e){
-    console.error('Supabase init error:', e);
-    setSyncStatus('error');
-    toast('Database connection failed: '+e.message,'err');
-  }
-}, 300);
+// ── AUTO-SYNC ON LOAD ─────────────────────────────────────
+// If a script URL is saved, automatically pull fresh data from
+// the sheet every time the dashboard is opened, and then every
+// 5 minutes while it's open so the team always sees live data.
+async function autoSync(){
+  if(!scriptURL) return; // no URL configured yet — skip
+  logSync('Auto-syncing on load...','info');
+  await pullFromSheet();
+}
 
+// Pull immediately on load (small delay so UI renders first)
+setTimeout(autoSync, 800);
+
+// Then re-pull every 5 minutes while dashboard is open
+setInterval(async()=>{
+  if(!scriptURL) return;
+  logSync('Auto-refresh (5 min interval)...','info');
+  await pullFromSheet();
+}, 5 * 60 * 1000);
 </script>
 </body>
 </html>
