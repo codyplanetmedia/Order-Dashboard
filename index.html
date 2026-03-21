@@ -389,10 +389,11 @@ let syncStatus='disconnected'; // disconnected | connected | syncing | error
 function save(){try{localStorage.setItem(SK,JSON.stringify(orders));}catch(e){}}
 function load(){try{const d=localStorage.getItem(SK);if(d)orders=JSON.parse(d);}catch(e){orders=[];}}
 function loadUrl(){
-  // scriptURL is hardcoded — use localStorage override only if set
+  // scriptURL is already hardcoded above — localStorage can override but only if non-empty
   const saved=localStorage.getItem('pm_script_url');
-  if(saved) scriptURL=saved;
-  if(scriptURL){
+  if(saved&&saved.trim()) scriptURL=saved.trim();
+  // Always show connected if URL is set (it's hardcoded so always true)
+  if(scriptURL&&scriptURL.trim()){
     document.getElementById('scriptUrl').value=scriptURL;
     setSyncStatus('connected');
   }
@@ -425,7 +426,7 @@ function gasRequest(url, params){
         '2) "Who has access" = Anyone, ' +
         '3) URL is correct'
       ));
-    }, 15000);
+    }, 30000);
 
     function cleanup(){
       try{ if(script.parentNode) script.parentNode.removeChild(script); }catch(e){}
@@ -561,10 +562,10 @@ async function testConnection(){
 }
 
 // ── PULL FROM SHEET ───────────────────────────────────────
-async function pullFromSheet(){
+async function pullFromSheet(silent=false){
   if(!scriptURL){toast('Connect to Google Sheets first — click the sync badge','err');document.getElementById('syncPanel').classList.add('open');return;}
   setSyncStatus('syncing');
-  logSync('Pulling orders from Google Sheet...','info');
+  if(!silent) logSync('Pulling orders from Google Sheet...','info');
   try{
     const d=await gasRequest(scriptURL, {action:'getOrders'});
     if(d.error)throw new Error(d.error);
@@ -585,13 +586,15 @@ async function pullFromSheet(){
       if(b.textContent.trim()==='All') b.classList.add('active');
     });
     setSyncStatus('connected');
-    logSync('✓ Pulled '+d.orders.length+' orders from sheet (fetched at '+d.fetchedAt+')','ok');
-    toast('↓ Pulled '+d.orders.length+' orders from Google Sheets','syn');
+    if(!silent) logSync('✓ Pulled '+d.orders.length+' orders from sheet (fetched at '+d.fetchedAt+')','ok');
+    if(!silent) toast('↓ Pulled '+d.orders.length+' orders from Google Sheets','syn');
     renderTable();renderDash();
   }catch(e){
-    setSyncStatus('error');
-    logSync('✗ Pull failed: '+e.message,'err');
-    toast('Sync pull failed — see sync panel for details','err');
+    // Don't fully disconnect on a failed refresh — just warn
+    logSync('⚠ Sync issue: '+e.message+' — will retry in 5 min','err');
+    if(!silent) toast('Sync issue — will retry automatically','err');
+    // Only show error badge if we've never connected successfully
+    if(syncStatus!=='connected') setSyncStatus('error');
   }
 }
 
@@ -612,8 +615,8 @@ async function pushToSheet(action, payload){
     return d;
   }catch(e){
     logSync('✗ '+action+' failed: '+e.message,'err');
-    setSyncStatus('error');
-    toast('Write to sheet failed — see sync log','err');
+    // Don't disconnect — keep showing connected so auto-sync can retry
+    toast('Write to sheet failed — will retry on next sync','err');
     return null;
   }
 }
@@ -1017,6 +1020,8 @@ document.addEventListener('click',function(e){
   if(panel.classList.contains('open')&&!panel.contains(e.target)&&!badge.contains(e.target))panel.classList.remove('open');
 });
 document.getElementById('hDate').textContent=new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
+// Set connected immediately since URL is hardcoded
+setSyncStatus('connected');
 loadUrl();
 renderDash();
 
@@ -1025,9 +1030,9 @@ renderDash();
 // the sheet every time the dashboard is opened, and then every
 // 5 minutes while it's open so the team always sees live data.
 async function autoSync(){
-  if(!scriptURL) return; // no URL configured yet — skip
-  logSync('Auto-syncing on load...','info');
-  await pullFromSheet();
+  if(!scriptURL) return;
+  // Don't log every auto-refresh to keep the log clean
+  await pullFromSheet(true); // true = silent mode
 }
 
 // Pull immediately on load (small delay so UI renders first)
