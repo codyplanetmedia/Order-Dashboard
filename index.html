@@ -459,26 +459,10 @@ function gasRequest(url, params){
 // Google Apps Script with no-cors: we fire-and-forget the POST,
 // then immediately do a JSONP GET to confirm the write succeeded.
 async function gasWrite(url, payload){
+  // Encode write payload as base64 GET param — uses JSONP like reads
   const json = JSON.stringify(payload);
-
-  // Method 1: fetch POST with no-cors (most reliable for writes)
-  // no-cors means we can't read the response, so we verify with a follow-up GET
-  try {
-    await fetch(url, {
-      method: 'POST',
-      mode:   'no-cors',
-      headers: { 'Content-Type': 'text/plain' }, // text/plain avoids preflight
-      body: json
-    });
-    // POST fired — return a synthetic success so the UI updates immediately
-    // The next auto-sync will confirm the change is in the sheet
-    logSync('↑ POST sent to sheet (will confirm on next sync)','ok');
-    return { ok: true, message: 'Write sent via POST' };
-  } catch(e) {
-    // Fallback: try GET with payload as URL param (for smaller payloads)
-    logSync('POST failed, trying GET fallback: '+e.message,'info');
-    return gasRequest(url, { action: 'write', payload: json });
-  }
+  const encoded = btoa(unescape(encodeURIComponent(json)));
+  return gasRequest(url, { action: 'write', data: encoded });
 }
 
 load();
