@@ -383,14 +383,15 @@ const SK='pm_v5';
 let orders=[];
 let editId=null,curFilter='all',sortC='status',sortD=1,curPage=1,expId=null;
 const PG=25;
-let scriptURL='https://script.google.com/macros/s/AKfycbx_RQnGucw-wzkRCyz4RB2jjxYDZ1fLjctrS_ZRp12oM_Vn5FxI0Fj1-oFjJhQw1psU/exec';
+let scriptURL='https://script.google.com/macros/s/AKfycbyHEsv73m9EKn2Q9LuwMvVyzsuKkTt2zbiQCm8U52u7OmqCtE40IfhNa1fHLc1lHmPp/exec';
+let writeURL='https://script.google.com/macros/s/AKfycbyHEsv73m9EKn2Q9LuwMvVyzsuKkTt2zbiQCm8U52u7OmqCtE40IfhNa1fHLc1lHmPp/exec';
 let syncStatus='disconnected'; // disconnected | connected | syncing | error
 
 function save(){try{localStorage.setItem(SK,JSON.stringify(orders));}catch(e){}}
 function load(){try{const d=localStorage.getItem(SK);if(d)orders=JSON.parse(d);}catch(e){orders=[];}}
 function loadUrl(){
   // scriptURL is hardcoded — only override if localStorage has a non-empty value
-  const saved=localStorage.getItem('pm_script_url');
+  localStorage.removeItem('pm_script_url'); localStorage.removeItem('pm_sheet_url'); const saved=null;
   if(saved&&saved.trim()) scriptURL=saved.trim();
   // Always connected since URL is hardcoded
   document.getElementById('scriptUrl').value=scriptURL;
@@ -604,7 +605,7 @@ async function pushToSheet(action, payload){
   setSyncStatus('syncing');
   logSync('Pushing '+action+' to sheet...','info');
   try{
-    const d = await gasWrite(scriptURL, {action, ...payload});
+    const d = await gasWrite(writeURL||scriptURL, {action, ...payload});
     if(!d) throw new Error('No response from script');
     if(d.error) throw new Error(d.error);
     setSyncStatus('connected');
