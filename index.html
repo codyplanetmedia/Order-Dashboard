@@ -7,6 +7,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{--red:#C0202A;--red-d:#8f151d;--red-g:rgba(192,32,42,0.12);--blk:#0c0c0c;--drk:#141414;--crd:#1a1a1a;--cr2:#202020;--cr3:#272727;--bdr:#272727;--bd2:#333;--txt:#efefef;--mut:#6a6a6a;--mu2:#444;--wht:#fff;--ord:#e8a020;--cmp:#27ae60;--hld:#e74c3c;--blu:#4e8ef5;--pur:#9b59b6;--syn:#00c9a7;}
+body.light{--blk:#f0f0f2;--drk:#ffffff;--crd:#f8f8f8;--cr2:#efefef;--cr3:#e8e8e8;--bdr:#ddd;--bd2:#ccc;--txt:#111111;--mut:#888;--mu2:#aaa;--wht:#111;}
+body.light .hdr{background:var(--hdr);}
+body.light .side{background:#ffffff;border-right:1px solid #ddd;}
+body.light .sc{background:#fff;border:1px solid #e0e0e0;}
 *{margin:0;padding:0;box-sizing:border-box;}
 body{font-family:'DM Sans',sans-serif;background:var(--blk);color:var(--txt);min-height:100vh;}
 ::-webkit-scrollbar{width:5px;height:5px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:3px;}
@@ -188,6 +192,20 @@ tbody tr.er td{padding:0;background:var(--cr2);border-bottom:1px solid var(--bdr
 .rin{animation:fi .2s ease;}
 @media(max-width:1100px){.sg{grid-template-columns:repeat(3,1fr);}.dg{grid-template-columns:1fr;}.flg{grid-template-columns:1fr;}}
 @media(max-width:780px){.snav{display:none;}.sg{grid-template-columns:repeat(2,1fr);}}
+.view-toggle{background:var(--cr2);border:1px solid var(--border);color:var(--mut);padding:6px 12px;border-radius:8px;font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;}
+.view-toggle:hover{border-color:var(--txt);color:var(--txt);}
+.view-toggle.active{background:var(--red);border-color:var(--red);color:#fff;}
+.kboard{display:flex;gap:14px;overflow-x:auto;padding-bottom:16px;min-height:500px;}
+.kcol{flex:0 0 220px;background:var(--cr2);border-radius:10px;padding:12px;border:1px solid var(--border);display:flex;flex-direction:column;gap:8px;}
+.kcol-hdr{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;margin-bottom:4px;display:flex;align-items:center;justify-content:space-between;}
+.kcol-hdr .kcount{font-size:11px;background:rgba(255,255,255,.08);padding:1px 7px;border-radius:10px;font-weight:400;letter-spacing:0;}
+.kcard{background:var(--cr1);border:1px solid var(--border);border-radius:8px;padding:10px 12px;cursor:grab;transition:all .15s;user-select:none;}
+.kcard:hover{border-color:var(--red);transform:translateY(-1px);}
+.kcard.dragging{opacity:.4;cursor:grabbing;}
+.kcard .kc-client{font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.kcard .kc-product{font-size:11px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px;}
+.kcard .kc-meta{font-size:10px;color:var(--mu2);margin-top:6px;display:flex;justify-content:space-between;}
+.kcol.drag-over{border-color:var(--red);background:rgba(195,38,45,.06);}
 .mtab{background:transparent;border:1px solid var(--border);color:var(--mut);padding:6px 14px;border-radius:20px;font-size:12px;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all .15s;}
 .mtab:hover{border-color:var(--txt);color:var(--txt);}
 .mtab.active{background:var(--red);border-color:var(--red);color:#fff;font-weight:600;}
@@ -218,6 +236,8 @@ tbody tr.er td{padding:0;background:var(--cr2);border-bottom:1px solid var(--bdr
     </div>
   </div>
   <div class="hdr-date" id="hDate"></div>
+  <button id="themeBtn" onclick="toggleTheme()" title="Toggle light/dark mode"
+    style="background:none;border:1px solid var(--border);color:var(--mut);padding:5px 10px;border-radius:8px;cursor:pointer;font-size:14px;margin-left:8px;">🌙</button>
 </header>
 
 <!-- SYNC PANEL -->
@@ -286,7 +306,14 @@ tbody tr.er td{padding:0;background:var(--cr2);border-bottom:1px solid var(--bdr
     <!-- ALL ORDERS -->
     <div class="page" id="page-orders">
       <div class="ph"><div class="pt">ALL ORDERS</div><div class="ps">Click any row to expand cost &amp; revenue · Changes sync to Google Sheets automatically</div></div>
-      <div id="monthTabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:12px;"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div id="monthTabs" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+        <div style="display:flex;gap:6px;flex-shrink:0;margin-left:12px;">
+          <button id="btnTable" class="view-toggle active" onclick="setView('table')" title="Table view">☰ Table</button>
+          <button id="btnBoard" class="view-toggle" onclick="setView('board')" title="Board view">⬜ Board</button>
+        </div>
+      </div>
+      <div id="boardView" style="display:none;"></div>
       <div class="tb">
         <div class="sb">
           <span style="color:var(--mut);font-size:13px;">🔍</span>
@@ -1204,6 +1231,129 @@ function setMonth(m){
   curPage=1;
   buildMonthTabs();
   renderTable();
+}
+
+// ── KANBAN BOARD ─────────────────────────────────────────────
+let curView = 'table';
+let dragId   = null;
+
+function setView(v){
+  curView = v;
+  document.getElementById('btnTable').classList.toggle('active', v==='table');
+  document.getElementById('btnBoard').classList.toggle('active', v==='board');
+  document.querySelector('.tb').style.display        = v==='table' ? '' : 'none';
+  document.getElementById('boardView').style.display = v==='board' ? '' : 'none';
+  if(v==='board') renderBoard();
+}
+
+function renderBoard(){
+  const cols = [
+    {key:'pending',  label:'Pending',  color:'var(--hld)'},
+    {key:'working',  label:'Working',  color:'var(--ord)'},
+    {key:'ordered',  label:'Ordered',  color:'var(--blu)'},
+    {key:'on_hold',  label:'On Hold',  color:'#888'},
+    {key:'complete', label:'Complete', color:'var(--cmp)'},
+  ];
+
+  // Apply month filter same as table
+  let fil = orders.filter(o=>{
+    if(curMonth!=='all'){
+      const d=(o.orderDate||o.date2||'').slice(0,7);
+      if(d!==curMonth) return false;
+    }
+    return true;
+  });
+
+  const grouped = {};
+  cols.forEach(c=>{ grouped[c.key]=[]; });
+  fil.forEach(o=>{ const s=deriveStatus(o); if(grouped[s]) grouped[s].push(o); });
+
+  document.getElementById('boardView').innerHTML = `<div class="kboard">${
+    cols.map(col=>`
+      <div class="kcol" id="kcol-${col.key}"
+        ondragover="event.preventDefault();this.classList.add('drag-over')"
+        ondragleave="this.classList.remove('drag-over')"
+        ondrop="dropCard(event,'${col.key}')">
+        <div class="kcol-hdr" style="color:${col.color};">
+          ${col.label}
+          <span class="kcount">${grouped[col.key].length}</span>
+        </div>
+        ${grouped[col.key].map(o=>`
+          <div class="kcard" draggable="true"
+            id="kcard-${o.id}"
+            ondragstart="dragStart(event,${o.id})"
+            ondragend="dragEnd(event)"
+            onclick="editO(${o.id})">
+            <div class="kc-client">${o.client}</div>
+            <div class="kc-product">${o.product}</div>
+            <div class="kc-meta">
+              <span>${o.orderNum||'—'}</span>
+              <span>${o.orderDate?fD(o.orderDate):''}</span>
+            </div>
+          </div>`).join('')}
+      </div>`).join('')
+  }</div>`;
+}
+
+function dragStart(e, id){
+  dragId = id;
+  setTimeout(()=>{ const el=document.getElementById('kcard-'+id); if(el) el.classList.add('dragging'); }, 0);
+  e.dataTransfer.effectAllowed = 'move';
+}
+
+function dragEnd(e){
+  document.querySelectorAll('.kcard').forEach(c=>c.classList.remove('dragging'));
+  document.querySelectorAll('.kcol').forEach(c=>c.classList.remove('drag-over'));
+}
+
+async function dropCard(e, newStatus){
+  e.preventDefault();
+  document.querySelectorAll('.kcol').forEach(c=>c.classList.remove('drag-over'));
+  if(!dragId) return;
+  const o = orders.find(x=>x.id===dragId);
+  if(!o || deriveStatus(o)===newStatus) return;
+
+  // Map display status back to col K value
+  const statusMap = {pending:'pending',working:'working',ordered:'ordered',on_hold:'on_hold',complete:'complete'};
+  o.status = statusMap[newStatus]||newStatus;
+  renderBoard();
+  renderDash();
+
+  // Push to sheet
+  const res = await pushToSheet('updateOrder', {order: o});
+  if(res) toast('✓ Moved to '+newStatus,'ok');
+  dragId = null;
+}
+
+// ── THEME ────────────────────────────────────────────────────
+function toggleTheme(){
+  const isLight = document.body.classList.toggle('light');
+  localStorage.setItem('pm_theme', isLight ? 'light' : 'dark');
+  document.getElementById('themeBtn').textContent = isLight ? '🌑' : '🌙';
+}
+
+function loadTheme(){
+  const t = localStorage.getItem('pm_theme');
+  if(t === 'light'){
+    document.body.classList.add('light');
+    const btn = document.getElementById('themeBtn');
+    if(btn) btn.textContent = '🌑';
+  }
+}
+
+// ── THEME ────────────────────────────────────────────────────
+function toggleTheme(){
+  const isLight = document.body.classList.toggle('light');
+  localStorage.setItem('pm_theme', isLight ? 'light' : 'dark');
+  document.getElementById('themeBtn').textContent = isLight ? '🌙' : '☀️';
+}
+function loadTheme(){
+  const t = localStorage.getItem('pm_theme');
+  if(t === 'light'){
+    document.body.classList.add('light');
+    const btn = document.getElementById('themeBtn');
+    if(btn) btn.textContent = '🌙';
+  }
 }
 
 // ── EXPORT ───────────────────────────────────────────────
