@@ -188,6 +188,11 @@ tbody tr.er td{padding:0;background:var(--cr2);border-bottom:1px solid var(--bdr
 .rin{animation:fi .2s ease;}
 @media(max-width:1100px){.sg{grid-template-columns:repeat(3,1fr);}.dg{grid-template-columns:1fr;}.flg{grid-template-columns:1fr;}}
 @media(max-width:780px){.snav{display:none;}.sg{grid-template-columns:repeat(2,1fr);}}
+.mtab{background:transparent;border:1px solid var(--border);color:var(--mut);padding:6px 14px;border-radius:20px;font-size:12px;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all .15s;}
+.mtab:hover{border-color:var(--txt);color:var(--txt);}
+.mtab.active{background:var(--red);border-color:var(--red);color:#fff;font-weight:600;}
+.comm-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;background:var(--cr2);border-radius:8px;border:1px solid var(--border);}
+.comm-row:hover{border-color:var(--cmp);}
 </style>
 </head>
 <body>
@@ -237,6 +242,7 @@ tbody tr.er td{padding:0;background:var(--cr2);border-bottom:1px solid var(--bdr
       <div class="nl">Views</div>
       <div class="ni active" onclick="showPage('dashboard',this)"><span class="ni-ic">📊</span>Dashboard</div>
       <div class="ni" onclick="showPage('orders',this)"><span class="ni-ic">📋</span>All Orders</div>
+      <div class="ni" onclick="showPage('comm',this)"><span class="ni-ic">💰</span>Commissions</div>
       <div class="ni" onclick="showPage('flags',this)"><span class="ni-ic">🚩</span>Needs Attention</div>
     </div>
     <div class="ns">
@@ -280,6 +286,7 @@ tbody tr.er td{padding:0;background:var(--cr2);border-bottom:1px solid var(--bdr
     <!-- ALL ORDERS -->
     <div class="page" id="page-orders">
       <div class="ph"><div class="pt">ALL ORDERS</div><div class="ps">Click any row to expand cost &amp; revenue · Changes sync to Google Sheets automatically</div></div>
+      <div id="monthTabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:12px;"></div>
       <div class="tb">
         <div class="sb">
           <span style="color:var(--mut);font-size:13px;">🔍</span>
@@ -325,7 +332,12 @@ tbody tr.er td{padding:0;background:var(--cr2);border-bottom:1px solid var(--bdr
     </div>
 
     <!-- FLAGS -->
-    <div class="page" id="page-flags">
+    <div class="page" id="page-comm">
+  <div class="ph"><div class="pt">COMMISSIONS</div></div>
+  <div class="pc" id="commPage"></div>
+</div>
+
+<div class="page" id="page-flags">
       <div class="ph"><div class="pt">NEEDS ATTENTION</div><div class="ps">Orders requiring follow-up or missing information</div></div>
       <div class="flg" id="flagPage"></div>
     </div>
@@ -380,8 +392,9 @@ const SEED_ORDERS = [{"id":100,"rowIndex":100,"flag":false,"client":"MCMC","prod
 
 // ── STATE ──────────────────────────────────────────────────
 const SK='pm_v5';
+const CK='pm_commissions'; // commission settings per client
 let orders=[];
-let editId=null,curFilter='all',sortC='status',sortD=1,curPage=1,expId=null;
+let curMonth='all',editId=null,curFilter='all',sortC='status',sortD=1,curPage=1,expId=null;
 const PG=25;
 let scriptURL='https://script.google.com/macros/s/AKfycbwTOce9-MADe_fC_gbFJuYX2tHL5EyjOCNIW9ZfAphsSas7x8hRvf7cQSIVcIsjT8cv/exec';
 let writeURL='https://script.google.com/macros/s/AKfycbwTOce9-MADe_fC_gbFJuYX2tHL5EyjOCNIW9ZfAphsSas7x8hRvf7cQSIVcIsjT8cv/exec';
@@ -612,6 +625,10 @@ function showPage(n,el){
   if(n==='dashboard'){renderDash();}
   if(n==='orders')renderTable();
   if(n==='flags')renderFlags();
+  if(n==='comm'){
+    if(sessionStorage.getItem('comm_auth')==='yes'){ renderCommPage(); }
+    else{ showCommLogin(); return; }
+  }
   // close sync panel
   document.getElementById('syncPanel').classList.remove('open');
 }
@@ -776,6 +793,7 @@ function sBy(c){if(sortC===c)sortD*=-1;else{sortC=c;sortD=1;}renderTable();}
 function setFilter(f,btn){curFilter=f;curPage=1;document.querySelectorAll('.fb').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderTable();}
 
 function renderTable(){
+  buildMonthTabs();
   const q=(document.getElementById('srch')?.value||'').toLowerCase();
   // Build month filter bar
   const allMonths=[...new Set(orders.map(o=>(o.orderDate||'').slice(0,7)).filter(Boolean))].sort().reverse();
@@ -793,7 +811,10 @@ function renderTable(){
   let fil=orders.filter(o=>{
     const ds=deriveStatus(o);
     if(curFilter!=='all'&&ds!==curFilter)return false;
-    
+    if(curMonth!=='all'){
+      const d=(o.orderDate||o.date2||'').slice(0,7);
+      if(d!==curMonth) return false;
+    }
     if(q&&!`${o.client} ${o.product} ${o.orderNum} ${o.supplier} ${o.decorator}`.toLowerCase().includes(q))return false;
     return true;
   });
@@ -994,6 +1015,197 @@ async function testWrite(){
   }
 }
 
+// ── COMMISSIONS ──────────────────────────────────────────────
+// Stored as { clientName: { enabled: true, rate: 0.10 } }
+let commissions = {};
+
+function loadCommissions(){
+  try{ const d=localStorage.getItem(CK); if(d) commissions=JSON.parse(d); }catch(e){ commissions={}; }
+}
+
+function saveCommissions(){
+  try{ localStorage.setItem(CK, JSON.stringify(commissions)); }catch(e){}
+}
+
+function getCommission(client){
+  const c=commissions[client];
+  if(!c||!c.enabled) return null;
+  return c;
+}
+
+function commTotal(o){
+  // Customer total excluding shipping
+  return (Number(o.custPrice)||0)+(Number(o.custSetup)||0);
+}
+
+function commAmount(o){
+  const c=getCommission(o.client);
+  if(!c) return 0;
+  return commTotal(o)*(c.rate||0);
+}
+
+function renderCommPage(){
+  // Group orders by month first, then by client within each month
+  const monthMap={};
+  orders.forEach(o=>{
+    const d=o.orderDate||o.date2||'';
+    const month=d?d.slice(0,7):'unknown';
+    if(!monthMap[month]) monthMap[month]={};
+    if(!monthMap[month][o.client]) monthMap[month][o.client]={orders:[],total:0,commTotal:0};
+    monthMap[month][o.client].orders.push(o);
+    monthMap[month][o.client].total += commTotal(o);
+    monthMap[month][o.client].commTotal += commAmount(o);
+  });
+
+  // Sort months newest first
+  const sortedMonths=Object.keys(monthMap).filter(m=>m!=='unknown').sort().reverse();
+  if(monthMap['unknown']) sortedMonths.push('unknown');
+
+  // Total commissions across all months
+  const grandTotal=orders.reduce((s,o)=>s+commAmount(o),0);
+
+  document.getElementById('commPage').innerHTML=`
+    <div style="margin-bottom:18px;">
+      <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--mut);margin-bottom:12px;">Commission Tracker — By Month</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;">
+        ${sortedMonths.filter(m=>m!=='unknown').map(month=>{
+          const clients=Object.entries(monthMap[month]);
+          const monthTotal=clients.reduce((s,[,data])=>s+data.commTotal,0);
+          const [y,m]=month.split('-');
+          const lbl=new Date(parseInt(y),parseInt(m)-1,1).toLocaleString('en-US',{month:'long',year:'numeric'});
+          return `<div class="sc" style="min-width:150px;">
+            <div class="sl">${lbl}</div>
+            <div class="sv sm" style="color:var(--cmp);">${f$0(monthTotal)}</div>
+            <div class="ss">Commission owed</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+    ${sortedMonths.map(month=>{
+      const clients=Object.entries(monthMap[month]).sort((a,b)=>a[0].localeCompare(b[0]));
+      const monthTotal=clients.reduce((s,[,data])=>s+data.commTotal,0);
+      const monthLabel=month==='unknown'?'No Date':
+        (()=>{ const [y,m]=month.split('-'); return new Date(parseInt(y),parseInt(m)-1,1).toLocaleString('en-US',{month:'long',year:'numeric'}); })();
+      return `
+        <div style="margin-bottom:28px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border);">
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:1px;color:var(--txt);">${monthLabel}</div>
+            <div style="font-size:13px;font-weight:600;color:var(--cmp);">${f$0(monthTotal)}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            ${clients.map(([client,data])=>{
+              const c=commissions[client]||{enabled:false,rate:0.10};
+              const amt=data.commTotal;
+              const isCustom=c.rate!==0.05&&c.rate!==0.06&&c.rate!==0.10;
+              return `<div class="comm-row">
+                <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;">
+                  <input type="checkbox" ${c.enabled?'checked':''}
+                    onchange="toggleComm('${client.replace(/'/g,"\'")}',this.checked)"
+                    style="width:17px;height:17px;cursor:pointer;accent-color:var(--cmp);flex-shrink:0;">
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${client}</div>
+                    <div style="font-size:11px;color:var(--mut);">${data.orders.length} order${data.orders.length!==1?'s':''} · Base: ${f$0(data.total)}</div>
+                    <div style="font-size:10px;color:var(--mut);margin-top:1px;">${data.orders.map(o=>o.orderNum).filter(Boolean).join(', ')||'—'}</div>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+                  <select onchange="setCommRate('${client.replace(/'/g,"\'")}',this.value)"
+                    style="background:var(--cr2);border:1px solid var(--border);color:var(--txt);padding:4px 8px;border-radius:6px;font-size:12px;cursor:pointer;">
+                    <option value="0.05" ${c.rate===0.05?'selected':''}>5%</option>
+                    <option value="0.06" ${c.rate===0.06?'selected':''}>6%</option>
+                    <option value="0.10" ${c.rate===0.10?'selected':''}>10%</option>
+                    <option value="custom" ${isCustom?'selected':''}>Custom</option>
+                  </select>
+                  ${isCustom?`<input type="number" min="0" max="100" step="0.5" value="${(c.rate*100).toFixed(1)}"
+                    onchange="setCommCustom('${client.replace(/'/g,"\'")}',this.value)"
+                    style="width:60px;background:var(--cr2);border:1px solid var(--border);color:var(--txt);padding:4px 8px;border-radius:6px;font-size:12px;" placeholder="%">`:''}
+                  <div style="min-width:72px;text-align:right;font-weight:600;font-size:13px;color:${c.enabled?'var(--cmp)':'var(--mut)'};">
+                    ${c.enabled?f$0(amt):'—'}
+                  </div>
+                </div>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>`;
+    }).join('')}`;
+}
+
+function toggleComm(client, enabled){
+  if(!commissions[client]) commissions[client]={enabled:false,rate:0.10};
+  commissions[client].enabled=enabled;
+  saveCommissions();
+  renderCommPage();
+  renderDash();
+}
+
+function setCommRate(client, val){
+  if(!commissions[client]) commissions[client]={enabled:false,rate:0.10};
+  if(val==='custom') return; // wait for custom input
+  commissions[client].rate=parseFloat(val);
+  saveCommissions();
+  renderCommPage();
+  renderDash();
+}
+
+function setCommCustom(client, val){
+  if(!commissions[client]) commissions[client]={enabled:false,rate:0.10};
+  const pct=parseFloat(val);
+  if(!isNaN(pct)) commissions[client].rate=pct/100;
+  saveCommissions();
+  renderCommPage();
+  renderDash();
+}
+
+// ── COMMISSION AUTH ──────────────────────────────────────────
+function showCommLogin(){
+  document.getElementById('commAuthModal').style.display='flex';
+  document.getElementById('commPwInput').value='';
+  document.getElementById('commPwError').textContent='';
+  setTimeout(()=>document.getElementById('commPwInput').focus(),100);
+}
+
+function checkCommPassword(){
+  const pw=document.getElementById('commPwInput').value;
+  if(pw==='12800Media!'){
+    sessionStorage.setItem('comm_auth','yes');
+    document.getElementById('commAuthModal').style.display='none';
+    showPage('comm');
+  } else {
+    document.getElementById('commPwError').textContent='Incorrect password. Try again.';
+    document.getElementById('commPwInput').value='';
+    document.getElementById('commPwInput').focus();
+  }
+}
+
+// ── MONTH TABS ───────────────────────────────────────────────
+function buildMonthTabs(){
+  const months=[...new Set(orders.map(o=>{
+    const d=o.orderDate||o.date2||'';
+    return d?d.slice(0,7):'';
+  }).filter(m=>/^\d{4}-\d{2}$/.test(m)))].sort().reverse();
+
+  const tabs=document.getElementById('monthTabs');
+  if(!tabs) return;
+  tabs.innerHTML=[
+    {val:'all',lbl:'All'},
+    ...months.map(m=>{
+      const [y,mo]=m.split('-');
+      const lbl=new Date(parseInt(y),parseInt(mo)-1,1).toLocaleString('en-US',{month:'long',year:'numeric'});
+      return {val:m,lbl};
+    })
+  ].map(({val,lbl})=>`
+    <button class="mtab ${curMonth===val?'active':''}" onclick="setMonth('${val}')">
+      ${lbl}
+    </button>`).join('');
+}
+
+function setMonth(m){
+  curMonth=m;
+  curPage=1;
+  buildMonthTabs();
+  renderTable();
+}
+
 // ── EXPORT ───────────────────────────────────────────────
 function exportCSV(){
   const H=['Client','Product','Order #','Source','Date','Status','Paid','Approved','Shipped','Invoiced','Supplier','Decorator','Our Cost','Our Setup','Decoration','Our Ship','Our Total','Cust Price','Cust Setup','Cust Ship','Cust Total','Profit','Tracking','Notes'];
@@ -1041,5 +1253,19 @@ setInterval(async()=>{
   await pullFromSheet();
 }, 5 * 60 * 1000);
 </script>
+<!-- Commission Password Modal -->
+<div id="commAuthModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:var(--cr1);border:1px solid var(--border);border-radius:14px;padding:36px 32px;width:340px;max-width:90vw;text-align:center;">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:2px;margin-bottom:6px;">COMMISSIONS</div>
+    <div style="font-size:12px;color:var(--mut);margin-bottom:24px;">This section is password protected</div>
+    <input type="password" id="commPwInput" placeholder="Enter password"
+      onkeydown="if(event.key==='Enter')checkCommPassword()"
+      style="width:100%;box-sizing:border-box;background:var(--cr2);border:1px solid var(--border);color:var(--txt);padding:10px 14px;border-radius:8px;font-size:14px;margin-bottom:10px;outline:none;">
+    <div id="commPwError" style="color:var(--red);font-size:12px;min-height:18px;margin-bottom:12px;"></div>
+    <button onclick="checkCommPassword()" class="btn" style="width:100%;padding:10px;">Unlock</button>
+    <button onclick="document.getElementById('commAuthModal').style.display='none'" 
+      style="margin-top:10px;background:none;border:none;color:var(--mut);font-size:12px;cursor:pointer;">Cancel</button>
+  </div>
+</div>
 </body>
 </html>
