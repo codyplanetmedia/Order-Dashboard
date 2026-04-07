@@ -671,7 +671,10 @@ function showPage(n,el){
   if(n==='orders')renderTable();
   if(n==='flags')renderFlags();
   if(n==='comm'){
-    if(sessionStorage.getItem('comm_auth')==='yes'){ renderCommPage(); }
+    if(sessionStorage.getItem('comm_auth')==='yes'){
+      // Always reload from Supabase when entering commissions page
+      loadCommissionsRemote().then(()=>renderCommPage());
+    }
     else{ showCommLogin(); return; }
   }
   // close sync panel
@@ -1065,13 +1068,20 @@ async function testWrite(){
 let commissions = {};
 
 function loadCommissions(){
+  // Load local cache immediately so UI isn't blank
   try{ const d=localStorage.getItem(CK); if(d) commissions=JSON.parse(d); }catch(e){ commissions={}; }
-  loadCommissionsRemote().then(()=>{ renderDash(); if(sessionStorage.getItem('comm_auth')==='yes') renderCommPage(); });
 }
 
-function saveCommissions(){
+async function syncCommissions(){
+  // Always pull from Supabase first — it's the source of truth
+  await loadCommissionsRemote();
+  renderDash();
+  if(sessionStorage.getItem('comm_auth')==='yes') renderCommPage();
+}
+
+async function saveCommissions(){
   try{ localStorage.setItem(CK, JSON.stringify(commissions)); }catch(e){}
-  saveCommissionsRemote();
+  await saveCommissionsRemote();
 }
 
 function getCommission(client){
@@ -1177,10 +1187,10 @@ function renderCommPage(){
     }).join('')}`;
 }
 
-function toggleComm(client, enabled){
+async function toggleComm(client, enabled){
   if(!commissions[client]) commissions[client]={enabled:false,rate:0.10};
   commissions[client].enabled=enabled;
-  saveCommissions();
+  await saveCommissions();
   renderCommPage();
   renderDash();
 }
@@ -1194,11 +1204,11 @@ function setCommRate(client, val){
   renderDash();
 }
 
-function setCommCustom(client, val){
+async function setCommCustom(client, val){
   if(!commissions[client]) commissions[client]={enabled:false,rate:0.10};
   const pct=parseFloat(val);
   if(!isNaN(pct)) commissions[client].rate=pct/100;
-  saveCommissions();
+  await saveCommissions();
   renderCommPage();
   renderDash();
 }
