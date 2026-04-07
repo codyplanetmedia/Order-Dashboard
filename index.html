@@ -279,7 +279,7 @@ tbody tr.er td{padding:0;background:var(--cr2);border-bottom:1px solid var(--bdr
     <!-- DASHBOARD -->
     <div class="page active" id="page-dashboard">
       <div class="ph">
-        <div class="pt">OVERVIEW — MARCH 2026</div>
+        <div class="pt">OVERVIEW</div>
         <div class="ps" id="dSub"></div>
       </div>
       <div class="sg" id="sGrid"></div>
@@ -419,7 +419,25 @@ const SEED_ORDERS = [{"id":100,"rowIndex":100,"flag":false,"client":"MCMC","prod
 
 // ── STATE ──────────────────────────────────────────────────
 const SK='pm_v5';
-const CK='pm_commissions'; // commission settings per client
+const CK='pm_commissions';
+const _SUPA_URL='https://abwaznbejkckxmstwkqg.supabase.co';
+const _SUPA_KEY='sb_publishable_Mdna_FRTzamet_bre46ICQ_ulFspyrV';
+let _supa=null;
+try{ _supa=supabase.createClient(_SUPA_URL,_SUPA_KEY); }catch(e){ console.warn('Supabase not loaded'); }
+
+async function loadCommissionsRemote(){
+  if(!_supa) return;
+  try{
+    const r=await _supa.from('commissions').select('data').eq('id',1).single();
+    if(r.data && r.data.data) commissions=r.data.data;
+    try{ localStorage.setItem(CK,JSON.stringify(commissions)); }catch(e){}
+  }catch(e){ console.warn('Comm load:',e.message); }
+}
+
+async function saveCommissionsRemote(){
+  if(!_supa) return;
+  try{ await _supa.from('commissions').upsert({id:1,data:commissions}); }catch(e){ console.warn('Comm save:',e.message); }
+} // commission settings per client
 let orders=[];
 let curMonth='all',editId=null,curFilter='all',sortC='status',sortD=1,curPage=1,expId=null;
 const PG=25;
@@ -1048,10 +1066,12 @@ let commissions = {};
 
 function loadCommissions(){
   try{ const d=localStorage.getItem(CK); if(d) commissions=JSON.parse(d); }catch(e){ commissions={}; }
+  loadCommissionsRemote().then(()=>{ renderDash(); if(sessionStorage.getItem('comm_auth')==='yes') renderCommPage(); });
 }
 
 function saveCommissions(){
   try{ localStorage.setItem(CK, JSON.stringify(commissions)); }catch(e){}
+  saveCommissionsRemote();
 }
 
 function getCommission(client){
