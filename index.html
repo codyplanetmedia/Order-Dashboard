@@ -420,23 +420,28 @@ const SEED_ORDERS = [{"id":100,"rowIndex":100,"flag":false,"client":"MCMC","prod
 // ── STATE ──────────────────────────────────────────────────
 const SK='pm_v5';
 const CK='pm_commissions';
-const _SUPA_URL='https://abwaznbejkckxmstwkqg.supabase.co';
-const _SUPA_KEY='sb_publishable_Mdna_FRTzamet_bre46ICQ_ulFspyrV';
-let _supa=null;
-try{ _supa=supabase.createClient(_SUPA_URL,_SUPA_KEY); }catch(e){ console.warn('Supabase not loaded'); }
+const COMM_URL='https://abwaznbejkckxmstwkqg.supabase.co/rest/v1/commissions';
+const COMM_HEADERS={'apikey':'sb_publishable_Mdna_FRTzamet_bre46ICQ_ulFspyrV','Authorization':'Bearer sb_publishable_Mdna_FRTzamet_bre46ICQ_ulFspyrV','Content-Type':'application/json'};
 
 async function loadCommissionsRemote(){
-  if(!_supa) return;
   try{
-    const r=await _supa.from('commissions').select('data').eq('id',1).single();
-    if(r.data && r.data.data) commissions=r.data.data;
-    try{ localStorage.setItem(CK,JSON.stringify(commissions)); }catch(e){}
-  }catch(e){ console.warn('Comm load:',e.message); }
+    const r=await fetch(COMM_URL+'?id=eq.1&select=data',{headers:COMM_HEADERS});
+    const rows=await r.json();
+    if(rows&&rows.length>0&&rows[0].data){
+      commissions=rows[0].data;
+      try{localStorage.setItem(CK,JSON.stringify(commissions));}catch(e){}
+    }
+  }catch(e){console.warn('Comm load:',e);}
 }
 
 async function saveCommissionsRemote(){
-  if(!_supa) return;
-  try{ await _supa.from('commissions').upsert({id:1,data:commissions}); }catch(e){ console.warn('Comm save:',e.message); }
+  try{
+    await fetch(COMM_URL,{
+      method:'POST',
+      headers:{...COMM_HEADERS,'Prefer':'resolution=merge-duplicates'},
+      body:JSON.stringify({id:1,data:commissions})
+    });
+  }catch(e){console.warn('Comm save:',e);}
 } // commission settings per client
 let orders=[];
 let curMonth='all',editId=null,curFilter='all',sortC='status',sortD=1,curPage=1,expId=null;
